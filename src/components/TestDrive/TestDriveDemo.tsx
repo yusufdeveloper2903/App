@@ -8,6 +8,7 @@ import EmbeddedDemo from '@components/EmbeddedDemo';
 import Modal from '@components/Modal';
 import SafeAreaConsumer from '@components/SafeAreaConsumer';
 import {shouldOpenRHPVariant} from '@components/SidePanel/RHPVariantTest';
+import useActivePolicy from '@hooks/useActivePolicy';
 import useCurrentUserPersonalDetails from '@hooks/useCurrentUserPersonalDetails';
 import useIsPaidPolicyAdmin from '@hooks/useIsPaidPolicyAdmin';
 import useOnboardingMessages from '@hooks/useOnboardingMessages';
@@ -21,7 +22,6 @@ import {completeTestDriveTask} from '@libs/actions/Task';
 import {setSelfTourViewed} from '@libs/actions/Welcome';
 import Log from '@libs/Log';
 import Navigation from '@libs/Navigation/Navigation';
-import {isAdminRoom} from '@libs/ReportUtils';
 import {getTestDriveURL} from '@libs/TourUtils';
 import CONST from '@src/CONST';
 import ONYXKEYS from '@src/ONYXKEYS';
@@ -32,8 +32,8 @@ function TestDriveDemo() {
     const {shouldUseNarrowLayout} = useResponsiveLayout();
     const [isVisible, setIsVisible] = useState(false);
     const styles = useThemeStyles();
-    const [onboarding] = useOnyx(ONYXKEYS.NVP_ONBOARDING);
-    const [onboardingReport] = useOnyx(`${ONYXKEYS.COLLECTION.REPORT}${onboarding?.chatReportID}`);
+    const activePolicy = useActivePolicy();
+    const adminsChatReportID = activePolicy?.chatReportIDAdmins?.toString();
     const [introSelected] = useOnyx(ONYXKEYS.NVP_INTRO_SELECTED);
     const [conciergeReportID] = useOnyx(ONYXKEYS.CONCIERGE_REPORT_ID);
     const [betas] = useOnyx(ONYXKEYS.BETAS);
@@ -110,11 +110,11 @@ function TestDriveDemo() {
                 Log.hmmm('[AdminTestDriveModal] User was redirected to Workspace Editor, skipping navigation to admin room');
                 return;
             }
-            if (isAdminRoom(onboardingReport)) {
-                Navigation.navigate(ROUTES.REPORT_WITH_ID.getRoute(onboardingReport?.reportID));
+            if (adminsChatReportID) {
+                Navigation.navigate(ROUTES.REPORT_WITH_ID.getRoute(adminsChatReportID));
             }
         });
-    }, [onboardingReport]);
+    }, [adminsChatReportID]);
 
     return (
         <SafeAreaConsumer>

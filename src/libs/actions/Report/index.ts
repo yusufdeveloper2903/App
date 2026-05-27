@@ -3150,13 +3150,17 @@ function removeLinksFromHtml(html: string, links: string[]): string {
 }
 
 /**
- * This function will handle removing only links that were purposely removed by the user while editing.
- *
- * @param newCommentText text of the comment after editing.
- * @param originalCommentMarkdown original markdown of the comment before editing.
- * @param videoAttributeCache cache of video attributes ([videoSource]: videoAttributes)
+ * Returns the set of anchor hrefs from a chunk of comment HTML, sanitized the same way removed links are matched in {@link removeLinksFromHtml}.
  */
-function handleUserDeletedLinksInHtml(newCommentText: string, originalCommentMarkdown: string, currentUserLogin: string, videoAttributeCache?: Record<string, string>): string {
+function extractAnchorHrefs(html: string): string[] {
+    const matches = [...html.matchAll(/<a\b[^>]*\bhref\s*=\s*(['"])(.*?)\1[^>]*>/gi)];
+    return matches.map((match) => Str.sanitizeURL(match[2] ?? ''));
+}
+
+/**
+ * This function will handle removing only links that were purposely removed by the user while editing.
+ */
+function handleUserDeletedLinksInHtml(newCommentText: string, originalCommentHTML: string, currentUserLogin: string, videoAttributeCache?: Record<string, string>): string {
     if (newCommentText.length > CONST.MAX_MARKUP_LENGTH) {
         return newCommentText;
     }
@@ -3173,7 +3177,11 @@ function handleUserDeletedLinksInHtml(newCommentText: string, originalCommentMar
         },
     });
 
-    const removedLinks = Parser.getRemovedMarkdownLinks(originalCommentMarkdown, newCommentText);
+    // Compare anchor hrefs from the original HTML directly against the parsed new HTML. Going through markdown was lossy:
+    // htmlToMarkdown's `anchor` rule upgrades bare autolinks `<a href="X">X</a>` to `[X](X)`, but extractLinksInMarkdownComment
+    // only matches `[X](X)` and never bare URLs — so re-typing the same bare URL was misclassified as "user removed the link".
+    const newHrefs = new Set(extractAnchorHrefs(htmlForNewComment));
+    const removedLinks = extractAnchorHrefs(originalCommentHTML).filter((href) => !newHrefs.has(href));
     return removeLinksFromHtml(htmlForNewComment, removedLinks);
 }
 
@@ -3206,7 +3214,7 @@ function editReportComment(
     if (originalCommentMarkdown === textForNewComment) {
         return;
     }
-    const htmlForNewComment = handleUserDeletedLinksInHtml(textForNewComment, originalCommentMarkdown, currentUserLogin, videoAttributeCache);
+    const htmlForNewComment = handleUserDeletedLinksInHtml(textForNewComment, originalCommentHTML ?? '', currentUserLogin, videoAttributeCache);
 
     const reportComment = Parser.htmlToText(htmlForNewComment);
 

@@ -184,8 +184,22 @@ const OnboardingGuard: NavigationGuard = {
         const isLoading = context.isLoading;
         const isNavigatingWithReplace = isNavigatingToOnboardingFlowWithReplaceAction(action);
 
+        // A domain that enforces 2FA shows the full-screen RequireTwoFactorAuthenticationOverlay before
+        // onboarding is finished. The overlay blocks everything except entering the 2FA setup flow, so
+        // pause onboarding redirects entirely while 2FA setup is pending — otherwise the guard keeps
+        // pulling focus back to onboarding, the overlay never sees the 2FA screen, and the CTA stays dead.
+        const accountRequires2FASetup = !!account?.needsTwoFactorAuthSetup || !!account?.twoFactorAuthSetupInProgress;
+
         const shouldSkipOnboarding =
-            skipOnboardingConfig || isLoading || isTransitioning || isOnboardingCompleted || isMigratedUser || isSingleEntry || needsExplanationModal || isNavigatingWithReplace;
+            skipOnboardingConfig ||
+            isLoading ||
+            isTransitioning ||
+            isOnboardingCompleted ||
+            isMigratedUser ||
+            isSingleEntry ||
+            needsExplanationModal ||
+            isNavigatingWithReplace ||
+            accountRequires2FASetup;
 
         if (shouldSkipOnboarding) {
             return {type: 'ALLOW'};

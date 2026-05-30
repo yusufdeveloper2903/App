@@ -1,4 +1,5 @@
 import {useNavigation} from '@react-navigation/core';
+import type {NavigationState, PartialState} from '@react-navigation/native';
 import React, {useCallback} from 'react';
 import {StyleSheet, View} from 'react-native';
 import type {OnyxCollection} from 'react-native-onyx';
@@ -17,8 +18,30 @@ import Navigation, {getDeepestFocusedScreen, isTwoFactorSetupScreen} from '@libs
 import variables from '@styles/variables';
 import CONST from '@src/CONST';
 import ONYXKEYS from '@src/ONYXKEYS';
+import ROUTES from '@src/ROUTES';
 import {emailSelector} from '@src/selectors/Session';
 import type {Policy} from '@src/types/onyx';
+
+/**
+ * Recursively checks whether any 2FA setup screen is mounted anywhere in the navigation tree.
+ * The 2FA modal can be open while a different modal (e.g. the onboarding modal) is the focused route,
+ * so the focused-path check alone (getDeepestFocusedScreen) can miss it and leave the overlay stuck.
+ */
+function stateContainsTwoFactorSetupScreen(state: NavigationState | PartialState<NavigationState> | undefined): boolean {
+    if (!state?.routes) {
+        return false;
+    }
+    return state.routes.some((route) => {
+        if (isTwoFactorSetupScreen(route.name)) {
+            return true;
+        }
+        const screen = (route.params as {screen?: string} | undefined)?.screen;
+        if (screen && isTwoFactorSetupScreen(screen)) {
+            return true;
+        }
+        return stateContainsTwoFactorSetupScreen(route.state);
+    });
+}
 
 /**
  * Checks if the 2FA is required because of Xero.
@@ -40,8 +63,10 @@ function RequireTwoFactorAuthenticationOverlay() {
     const shouldShowRequire2FAPage = useShouldShowRequire2FAPage();
     const isIn2FASetupFlow = useRootNavigationState((state) => {
         // When navigation is not ready yet, use the navigation state from the navigation hook.
-        const focusedScreen = getDeepestFocusedScreen(state ?? navigation.getState());
-        return isTwoFactorSetupScreen(focusedScreen?.name);
+        const rootState = state ?? navigation.getState();
+        // The 2FA modal can be open while another modal (e.g. the onboarding modal) is the focused route,
+        // so check the focused path first and then fall back to scanning the whole tree for a 2FA screen.
+        return isTwoFactorSetupScreen(getDeepestFocusedScreen(rootState)?.name) || stateContainsTwoFactorSetupScreen(rootState);
     });
 
     const illustrations = useMemoizedLazyIllustrations(['Encryption']);
@@ -53,7 +78,12 @@ function RequireTwoFactorAuthenticationOverlay() {
     const [is2FARequiredBecauseOfXero = false] = useOnyx(ONYXKEYS.COLLECTION.POLICY, {selector: requires2FAForXeroSelector});
 
     const handleOnPress = () => {
-        Navigation.navigate(getTwoFactorAuthRoute());
+        // Anchor the 2FA dynamic route to a stable, always-resolvable base (settings/security) instead of
+        // the transient screen behind the overlay. While onboarding, the active route is the onboarding
+        // modal, which cannot host the `two-factor-auth/...` suffix, so the dynamic route would fail to
+        // resolve. The OnboardingGuard pauses its onboarding redirect while 2FA setup is pending so this
+        // navigation reaches the 2FA flow instead of bouncing back to onboarding.
+        Navigation.navigate(getTwoFactorAuthRoute(ROUTES.SETTINGS_SECURITY));
     };
 
     if (!shouldShowRequire2FAPage || isIn2FASetupFlow) {

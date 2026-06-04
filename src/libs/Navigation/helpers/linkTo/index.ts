@@ -8,6 +8,7 @@ import {getTabState} from '@libs/Navigation/helpers/tabNavigatorUtils';
 import {linkingConfig} from '@libs/Navigation/linkingConfig';
 import type {PlatformStackNavigationState} from '@libs/Navigation/PlatformStackNavigation/types';
 import {shallowCompare} from '@libs/ObjectUtils';
+import {getReportAction, isDeletedAction} from '@libs/ReportActionsUtils';
 import getMatchingNewRoute from '@navigation/helpers/getMatchingNewRoute';
 import type {NavigationPartialRoute, ReportsSplitNavigatorParamList, RootNavigatorParamList, StackNavigationAction} from '@navigation/types';
 import CONST from '@src/CONST';
@@ -80,6 +81,18 @@ function isNavigatingToReportActionWithinSameReport(currentRoute: NavigationPart
     const newParams = newRoute?.params as ReportsSplitNavigatorParamList[typeof SCREENS.REPORT];
 
     return currentParams?.reportID === newParams?.reportID && currentParams.reportActionID !== newParams.reportActionID;
+}
+
+/**
+ * Returns true when the linked report action is "broken" — either not loaded into Onyx yet, or deleted.
+ * A broken target should still PUSH a fresh report screen so the back button returns to the chat that
+ * holds the link (https://github.com/Expensify/App/issues/70498). A valid, loaded action should NAVIGATE
+ * instead, so the already-open report scrolls to the action in place.
+ */
+function isLinkedReportActionBroken(route: NavigationPartialRoute) {
+    const params = route.params as ReportsSplitNavigatorParamList[typeof SCREENS.REPORT] | undefined;
+    const reportAction = getReportAction(params?.reportID, params?.reportActionID);
+    return !reportAction || isDeletedAction(reportAction);
 }
 
 /**
@@ -170,6 +183,12 @@ export default function linkTo(navigation: NavigationContainerRef<RootNavigatorP
 
     const typedPayload = (action as {payload: {name?: string; params?: ActionPayloadParams}}).payload;
 
+    // When linking to a report action within the same report, decide whether to scroll to it in place.
+    // A valid, loaded action keeps NAVIGATE so the open report scrolls to it; a broken (not loaded or
+    // deleted) action still PUSHes a fresh report screen so back returns to the chat holding the link.
+    const isWithinSameReportActionLink = isNavigatingToReportActionWithinSameReport(currentFocusedRoute, focusedRouteFromPath);
+    const shouldScrollToReportActionInPlace = isWithinSameReportActionLink && !isLinkedReportActionBroken(focusedRouteFromPath);
+
     if (forceReplace) {
         action.type = CONST.NAVIGATION.ACTION_TYPE.REPLACE;
     }
@@ -188,9 +207,11 @@ export default function linkTo(navigation: NavigationContainerRef<RootNavigatorP
         action.type = CONST.NAVIGATION.ACTION_TYPE.PUSH;
     }
 
-    // When we link to a report action in the current report, we want to push instead of replace so that back navigation
-    // works naturally.
-    else if (isNavigatingToReportActionWithinSameReport(currentFocusedRoute, focusedRouteFromPath)) {
+    // When we link to a report action in the current report, only PUSH when the target action is broken
+    // (not loaded or deleted) so that opening a missing/deleted message still lands on a fresh report
+    // screen and back returns to the chat holding the link. For a valid, loaded action we keep NAVIGATE
+    // so the open report scrolls to it in place.
+    else if (isWithinSameReportActionLink && !shouldScrollToReportActionInPlace) {
         action.type = CONST.NAVIGATION.ACTION_TYPE.PUSH;
     }
 
@@ -268,7 +289,11 @@ export default function linkTo(navigation: NavigationContainerRef<RootNavigatorP
     if (
         action.type === CONST.NAVIGATION.ACTION_TYPE.NAVIGATE &&
         action.payload.name === NAVIGATORS.TAB_NAVIGATOR &&
-        !isFullScreenName((minimalAction.payload as {name?: string} | undefined)?.name)
+        !isFullScreenName((minimalAction.payload as {name?: string} | undefined)?.name) &&
+        // Keep NAVIGATE when scrolling to a report action in place. The minimal action reduces to
+        // SCREENS.REPORT (not a full-screen name), which would otherwise flip it back to PUSH and open
+        // a duplicate report screen instead of scrolling within the already-open chat.
+        !shouldScrollToReportActionInPlace
     ) {
         minimalAction.type = CONST.NAVIGATION.ACTION_TYPE.PUSH;
     }

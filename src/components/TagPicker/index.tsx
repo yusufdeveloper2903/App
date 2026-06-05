@@ -175,6 +175,8 @@ function TagPicker({
             shouldShowTextInput={availableTagsCount >= CONST.STANDARD_LIST_ITEM_LIMIT}
             initiallyFocusedItemKey={selectedOptionKey}
             onSelectRow={onSubmit}
+            isRowMultilineSupported
+            titleNumberOfLines={3}
         />
     );
 }

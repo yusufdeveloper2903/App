@@ -258,8 +258,10 @@ function ComposerWithSuggestions({
     const {shouldUseNarrowLayout} = useResponsiveLayout();
 
     const composerRef = useRef<ComposerRef | null>(null);
+    // Wrapper around the composer, used to scope pointer tracking to this instance (web) for #90844.
+    const composeWrapperRef = useRef<View | null>(null);
 
-    const {editingState, editingReportActionID, editingReportAction, effectiveDraft, currentEditMessageSelection} = useComposerEditState();
+    const {isEditingInComposer, editingState, editingReportActionID, editingReportAction, effectiveDraft, currentEditMessageSelection} = useComposerEditState();
     const {setEditingMessage, setCurrentEditMessageSelection} = useReportActionActiveEditActions();
 
     const isEditing = editingState !== CONST.REPORT_ACTION_EDIT_MESSAGE_STATE.OFF;
@@ -305,6 +307,13 @@ function ComposerWithSuggestions({
     });
 
     const [selection, setSelection] = useState<TextSelection>(() => currentEditMessageSelection ?? {start: initialText.length, end: initialText.length});
+    // Edit-in-composer caret bookkeeping for #90844: `editCaretRef` is the latest caret and `editCaretNonZeroRef`
+    // keeps the last caret that wasn't collapsed at 0, so the spurious {0,0} a bare refocus emits can't erase it.
+    const editCaretRef = useRef<TextSelection>(currentEditMessageSelection ?? {start: initialText.length, end: initialText.length});
+    const editCaretNonZeroRef = useRef<TextSelection | null>(currentEditMessageSelection?.start || currentEditMessageSelection?.end ? currentEditMessageSelection : null);
+    // Whether the caret was just placed by a real pointer interaction on the composer (vs a programmatic refocus). A
+    // user tap must be honored; a programmatic refocus must have its caret restored. (#90844)
+    const userCaretIntentRef = useRef(false);
 
     const {accountID: currentUserAccountID} = useCurrentUserPersonalDetails();
 
@@ -328,10 +337,37 @@ function ComposerWithSuggestions({
         focusComposerWithDelay(composerRef.current, delay)(shouldDelay, forcedSelectionRange, forceKeyboardIfAlreadyFocused).catch(() => {});
     }, []);
 
-    const handleEditFocus = useCallback(() => {
-        focus(true, undefined, true);
-        onFocus();
-    }, [focus, onFocus]);
+    // Work out which caret to restore when refocusing the edit composer. Prefer the latest caret, but when it is the
+    // spurious {0,0} from a bare refocus on a non-empty message, fall back to the last non-collapsed caret. (#90844)
+    const resolveEditCaret = useCallback((): Selection | undefined => {
+        if (!isEditingInComposer) {
+            return undefined;
+        }
+
+        const textLength = commentRef.current.length;
+        const candidate = editCaretRef.current ?? currentEditMessageSelection ?? selection ?? {start: textLength, end: textLength};
+        const candidateEnd = candidate.end ?? candidate.start;
+        const chosen = textLength > 0 && candidate.start === 0 && candidateEnd === 0 ? (editCaretNonZeroRef.current ?? candidate) : candidate;
+
+        return {start: Math.min(chosen.start, textLength), end: Math.min(chosen.end ?? chosen.start, textLength)};
+    }, [currentEditMessageSelection, isEditingInComposer, selection]);
+
+    const handleEditFocus = useCallback(
+        (caretToRestore?: TextSelection) => {
+            const caret = caretToRestore ? {start: caretToRestore.start, end: caretToRestore.end ?? caretToRestore.start} : resolveEditCaret();
+            focus(true, caret, true);
+            onFocus();
+        },
+        [focus, resolveEditCaret, onFocus],
+    );
+
+    // Imperatively place the caret on the (web) composer and repeat next frame so a markdown re-render can't undo it.
+    // This is how the codebase already moves the caret on this composer (see onSuggestionSelected). (#90844)
+    const placeEditCaret = useCallback((caret: Selection) => {
+        const apply = () => composerRef.current?.setSelection?.(caret.start, caret.end);
+        apply();
+        requestAnimationFrame(apply);
+    }, []);
 
     const handleEditValueChange = useCallback(
         (nextValue: string) => {
@@ -344,13 +380,46 @@ function ComposerWithSuggestions({
         [onValueChange, setText],
     );
 
+    // Single entry point for recording an edit caret: keep the refs (latest + last non-zero) in sync with the
+    // controlled state and the persisted context selection. (#90844)
+    const rememberEditSelection = useCallback(
+        (nextSelection: TextSelection) => {
+            editCaretRef.current = nextSelection;
+            if (nextSelection.start > 0 || (nextSelection.end ?? 0) > 0) {
+                editCaretNonZeroRef.current = nextSelection;
+            }
+            setSelection(nextSelection);
+            setCurrentEditMessageSelection((prevSelection) => ({
+                ...prevSelection,
+                ...nextSelection,
+            }));
+        },
+        [setCurrentEditMessageSelection],
+    );
+
     useEditComposerToggle({
         selection,
         composerRef,
         onFocus: handleEditFocus,
         onValueChange: handleEditValueChange,
-        onSelectionChange: setSelection,
+        onSelectionChange: rememberEditSelection,
     });
+
+    // Track whether the caret was placed by a real pointer interaction on the composer. We do this at the DOM level
+    // (web only) because the spurious caret reset we need to ignore comes from a programmatic refocus, which has no
+    // preceding pointer event, whereas a deliberate user tap does. (#90844)
+    useEffect(() => {
+        if (typeof document === 'undefined') {
+            return;
+        }
+        const handlePointerDown = (event: Event) => {
+            const wrapperElement = composeWrapperRef.current as unknown as HTMLElement | null;
+            const target = event.target as Node | null;
+            userCaretIntentRef.current = !!wrapperElement && !!target && wrapperElement.contains(target);
+        };
+        document.addEventListener('pointerdown', handlePointerDown, true);
+        return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+    }, []);
 
     const [modal] = useOnyx(ONYXKEYS.MODAL);
     const [preferredSkinTone = CONST.EMOJI_DEFAULT_SKIN_TONE] = useOnyx(ONYXKEYS.PREFERRED_EMOJI_SKIN_TONE);
@@ -697,18 +766,23 @@ function ComposerWithSuggestions({
     const onSelectionChange = useCallback(
         (e: CustomSelectionChangeEvent) => {
             const newSelection = {...e.nativeEvent.selection};
-            setSelection(newSelection);
-            setCurrentEditMessageSelection((prevSelection) => ({
-                ...prevSelection,
-                ...newSelection,
-            }));
+            const selectionEnd = newSelection.end ?? newSelection.start;
+
+            // Drop the spurious {0,0} a programmatic refocus emits on a non-empty message (no preceding user tap), so it
+            // can't overwrite the real caret. A deliberate tap at the start sets `userCaretIntentRef` and is kept. (#90844)
+            const isCollapsedToStart = isEditingInComposer && commentRef.current.length > 0 && newSelection.start === 0 && selectionEnd === 0;
+            if (isCollapsedToStart && !userCaretIntentRef.current) {
+                return;
+            }
+
+            rememberEditSelection(newSelection);
 
             if (!composerRef.current?.isFocused()) {
                 return;
             }
             suggestionsRef.current?.onSelectionChange?.(e);
         },
-        [setCurrentEditMessageSelection, suggestionsRef],
+        [isEditingInComposer, rememberEditSelection, suggestionsRef],
     );
 
     const hideSuggestionMenu = useCallback(
@@ -750,12 +824,12 @@ function ComposerWithSuggestions({
         }
         delayedAutoFocusRouteKeyRef.current = route.key;
 
-        const handle = TransitionTracker.runAfterTransitions({callback: () => focus(true)});
+        const handle = TransitionTracker.runAfterTransitions({callback: () => focus(true, resolveEditCaret())});
 
         return () => {
             handle.cancel();
         };
-    }, [focus, route.key, shouldAutoFocus, shouldDelayAutoFocus]);
+    }, [focus, resolveEditCaret, route.key, shouldAutoFocus, shouldDelayAutoFocus]);
 
     /**
      * Tracks whether there is a composer input inside the side panel on the screen.
@@ -780,10 +854,10 @@ function ComposerWithSuggestions({
                     return;
                 }
 
-                focus(true);
+                focus(true, resolveEditCaret());
             }, shouldTakeOverFocus);
         },
-        [focus, isFocused, isSidePanelHiddenOrLargeScreen, handleSidePanelFocus],
+        [focus, resolveEditCaret, isFocused, isSidePanelHiddenOrLargeScreen, handleSidePanelFocus],
     );
 
     /**
@@ -897,8 +971,20 @@ function ComposerWithSuggestions({
             inputFocusChange(false);
             return;
         }
-        focus(true);
-    }, [focus, prevIsFocused, editFocused, prevIsModalVisible, isFocused, modal?.isVisible, isNextModalWillOpenRef, shouldAutoFocus, isSidePanelHiddenOrLargeScreen, isInSidePanel]);
+        focus(true, resolveEditCaret());
+    }, [
+        focus,
+        resolveEditCaret,
+        prevIsFocused,
+        editFocused,
+        prevIsModalVisible,
+        isFocused,
+        modal?.isVisible,
+        isNextModalWillOpenRef,
+        shouldAutoFocus,
+        isSidePanelHiddenOrLargeScreen,
+        isInSidePanel,
+    ]);
 
     useEffect(() => {
         // Scrolls the composer to the bottom and sets the selection to the end, so that longer drafts are easier to edit
@@ -1010,8 +1096,29 @@ function ComposerWithSuggestions({
     const handleFocus = useCallback(() => {
         handleSidePanelFocus();
         setUpComposeFocusManager(!isInSidePanel);
+
+        // When the edit composer regains focus programmatically (e.g. after the Report field RHP closes), the browser
+        // collapses the caret to the start. If this focus wasn't started by a user tap, restore the resolved caret in
+        // the same focus event so the caret never visibly jumps from the start to the end. Web only: this relies on the
+        // pointer tracking below, and the bug itself is web-specific. (#90844)
+        if (typeof document !== 'undefined' && isEditingInComposer && !userCaretIntentRef.current && commentRef.current.length > 0) {
+            const caret = resolveEditCaret();
+            if (caret) {
+                placeEditCaret(caret);
+            }
+        }
+
         onFocus();
-    }, [onFocus, setUpComposeFocusManager, handleSidePanelFocus, isInSidePanel]);
+    }, [onFocus, setUpComposeFocusManager, handleSidePanelFocus, isInSidePanel, isEditingInComposer, resolveEditCaret, placeEditCaret]);
+
+    const handleBlur = useCallback(
+        (event: BlurEvent) => {
+            // Clear the tap intent so the next programmatic refocus restores the caret instead of honoring a stale tap.
+            userCaretIntentRef.current = false;
+            onBlur(event);
+        },
+        [onBlur],
+    );
 
     // When using the suggestions box (Suggestions) we need to imperatively
     // set the cursor to the end of the suggestion/mention after it's selected.
@@ -1039,6 +1146,7 @@ function ComposerWithSuggestions({
     return (
         <>
             <View
+                ref={composeWrapperRef}
                 style={[containerComposeStyles, styles.textInputComposeBorder]}
                 onTouchEndCapture={() => {
                     isTouchEndedRef.current = true;
@@ -1063,7 +1171,7 @@ function ComposerWithSuggestions({
                     ]}
                     maxLines={maxComposerLines}
                     onFocus={handleFocus}
-                    onBlur={onBlur}
+                    onBlur={handleBlur}
                     onClick={setShouldBlockSuggestionCalcToFalse}
                     onPasteFile={(files) => {
                         composerRef.current?.blur();

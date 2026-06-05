@@ -35,6 +35,11 @@ function focusComposerWithDelay(textInput: InputType | null, delay: number = CON
                 if (forceKeyboardIfAlreadyFocused) {
                     requestKeyboardForFocusedComposer(input, forcedSelectionRange);
                 }
+                // The composer can already be focused (e.g. after an RHP closes), so `input.focus()` below is skipped.
+                // Still honor an explicit caret request so it is not left collapsed at the start of the text.
+                if (forcedSelectionRange) {
+                    setTextInputSelection(input, forcedSelectionRange);
+                }
                 return;
             }
 

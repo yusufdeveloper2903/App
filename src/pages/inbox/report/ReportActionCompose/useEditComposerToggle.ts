@@ -18,7 +18,7 @@ type UseEditComposerToggleProps = {
     onSelectionChange?: (selection: TextSelection) => void;
 
     /** Handle focusing the composer */
-    onFocus?: () => void;
+    onFocus?: (selection?: TextSelection) => void;
 
     /** Handle changing the value of the composer */
     onValueChange?: (value: string) => void;
@@ -57,6 +57,18 @@ function useEditComposerToggle({selection, composerRef, onFocus, onValueChange, 
         shouldForceNativeValueUpdate?: boolean;
     };
 
+    // After re-applying an edited value the controlled selection prop alone doesn't move the web caret, so write it
+    // imperatively and repeat on the next frame in case a markdown re-render resets it. (#90844)
+    const reapplyComposerCaret = (caret: TextSelection) => {
+        const caretEnd = caret.end ?? caret.start;
+        const placeCaret = () => {
+            composerRef.current?.setSelection?.(caret.start, caretEnd);
+        };
+
+        placeCaret();
+        requestAnimationFrame(placeCaret);
+    };
+
     const applyComposerValue = (nextValue: string, options?: ApplyComposerValueOptions) => {
         const defaultSelection: TextSelection = {start: nextValue.length, end: nextValue.length};
         const shouldUseEditingSelection = options?.isEditingInComposer ?? false;
@@ -73,7 +85,8 @@ function useEditComposerToggle({selection, composerRef, onFocus, onValueChange, 
         ReportActionComposeUtils.updateNativeSelectionValue(composerRef, selectionToApply.start, selectionToApply.end ?? selectionToApply.start);
 
         if (options?.isEditingInComposer) {
-            onFocus?.();
+            onFocus?.(selectionToApply);
+            reapplyComposerCaret(selectionToApply);
         }
     };
 

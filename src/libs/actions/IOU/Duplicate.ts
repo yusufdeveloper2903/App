@@ -484,11 +484,6 @@ function resolveDuplicates({
             continue;
         }
 
-        const transactionThreadReportID = transactionThreadReportIDMap[transactionID];
-        if (!transactionThreadReportID) {
-            continue;
-        }
-
         const createdReportAction = buildOptimisticHoldReportAction();
         reportActionIDList.push(createdReportAction.reportActionID);
         resolvedTransactionIDList.push(transactionID);
@@ -510,6 +505,17 @@ function resolveDuplicates({
                 },
             },
         });
+
+        // The held duplicate's transaction thread (childReportID) is created lazily and may not exist
+        // yet — e.g. when an admin resolves a member's expense without ever opening it. We must still
+        // send the duplicate to RESOLVE_DUPLICATES (it was already pushed to resolvedTransactionIDList /
+        // reportActionIDList above), otherwise the backend resolves nothing and the violation comes back.
+        // The optimistic Hold report action is only written when the thread exists, to avoid corrupting
+        // `report_actions_undefined`.
+        const transactionThreadReportID = transactionThreadReportIDMap[transactionID];
+        if (!transactionThreadReportID) {
+            continue;
+        }
         optimisticHoldActions.push({
             onyxMethod: Onyx.METHOD.MERGE,
             key: `${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${transactionThreadReportID}`,
@@ -528,33 +534,38 @@ function resolveDuplicates({
         });
     }
 
-    const transactionThreadReportID = params.reportID ? getIOUActionForTransactions([params.transactionID], params.reportID).at(0)?.childReportID : undefined;
+    const keptTransactionThreadReportID = params.reportID ? getIOUActionForTransactions([params.transactionID], params.reportID).at(0)?.childReportID : undefined;
     const optimisticReportAction = buildOptimisticDismissedViolationReportAction({
         reason: 'manual',
         violationName: CONST.VIOLATIONS.DUPLICATED_TRANSACTION,
     });
 
-    const optimisticReportActionData: OnyxUpdate<typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS> = {
-        onyxMethod: Onyx.METHOD.MERGE,
-        key: `${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${transactionThreadReportID}`,
-        value: {
-            [optimisticReportAction.reportActionID]: optimisticReportAction,
-        },
-    };
-
-    const failureReportActionData: OnyxUpdate<typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS> = {
-        onyxMethod: Onyx.METHOD.MERGE,
-        key: `${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${transactionThreadReportID}`,
-        value: {
-            [optimisticReportAction.reportActionID]: null,
-        },
-    };
-
     const optimisticData: Array<OnyxUpdate<typeof ONYXKEYS.COLLECTION.TRANSACTION | typeof ONYXKEYS.COLLECTION.TRANSACTION_VIOLATIONS | typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS>> = [];
     const failureData: Array<OnyxUpdate<typeof ONYXKEYS.COLLECTION.TRANSACTION | typeof ONYXKEYS.COLLECTION.TRANSACTION_VIOLATIONS | typeof ONYXKEYS.COLLECTION.REPORT_ACTIONS>> = [];
 
-    optimisticData.push(optimisticTransactionData, ...optimisticTransactionViolations, ...optimisticHoldActions, ...optimisticHoldTransactionActions, optimisticReportActionData);
-    failureData.push(failureTransactionData, ...failureTransactionViolations, ...failureHoldActions, ...failureHoldTransactionActions, failureReportActionData);
+    optimisticData.push(optimisticTransactionData, ...optimisticTransactionViolations, ...optimisticHoldActions, ...optimisticHoldTransactionActions);
+    failureData.push(failureTransactionData, ...failureTransactionViolations, ...failureHoldActions, ...failureHoldTransactionActions);
+
+    // The kept transaction's thread (childReportID) is also created lazily. When it's missing we skip the
+    // optimistic dismissed-violation action (it would otherwise land on `report_actions_undefined`). The
+    // DUPLICATED_TRANSACTION violation is still removed optimistically above, and the backend records the
+    // dismissal from `dismissedViolationReportActionID` regardless of the optimistic action's placement.
+    if (keptTransactionThreadReportID) {
+        optimisticData.push({
+            onyxMethod: Onyx.METHOD.MERGE,
+            key: `${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${keptTransactionThreadReportID}`,
+            value: {
+                [optimisticReportAction.reportActionID]: optimisticReportAction,
+            },
+        });
+        failureData.push({
+            onyxMethod: Onyx.METHOD.MERGE,
+            key: `${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${keptTransactionThreadReportID}`,
+            value: {
+                [optimisticReportAction.reportActionID]: null,
+            },
+        });
+    }
     const {reportID, transactionIDList, receiptID, ...otherParams} = params;
 
     const parameters: ResolveDuplicatesParams = {

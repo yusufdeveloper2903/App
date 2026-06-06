@@ -994,8 +994,20 @@ describe('actions/Duplicate', () => {
                 ]),
             );
 
-            // Then: Verify API was called
-            expect(writeSpy).toHaveBeenCalledWith(WRITE_COMMANDS.RESOLVE_DUPLICATES, expect.objectContaining({}), expect.objectContaining({}));
+            // Then: Verify API was called AND the duplicate is still sent to the backend even though its
+            // transaction thread (childReportID) is missing. Regression guard for #92845 / PR #91194: the
+            // duplicate must not be dropped from transactionIDList, otherwise the backend resolves nothing
+            // and the DUPLICATED_TRANSACTION violation comes back.
+            expect(writeSpy).toHaveBeenCalledWith(
+                WRITE_COMMANDS.RESOLVE_DUPLICATES,
+                expect.objectContaining({
+                    transactionID: mainTransactionID,
+                    transactionIDList: duplicateTransactionIDs,
+                    reportActionIDList: expect.arrayContaining([expect.anything()]),
+                    dismissedViolationReportActionID: expect.anything(),
+                }),
+                expect.objectContaining({}),
+            );
         });
 
         it('should handle cross-report duplicates by finding IOU actions in each transaction own report', async () => {

@@ -757,8 +757,8 @@ function WorkspaceCategoriesPage({route}: WorkspaceCategoriesPageProps) {
                 <HeaderWithBackButton
                     shouldShowBackButton={shouldUseNarrowLayout}
                     title={selectionModeHeader ? translate('common.selectMultiple') : translate('workspace.common.categories')}
-                    icon={!selectionModeHeader ? illustrations.FolderOpen : undefined}
-                    shouldUseHeadlineHeader={!selectionModeHeader}
+                    icon={!selectionModeHeader && shouldDisplayButtonsInSeparateLine ? illustrations.FolderOpen : undefined}
+                    shouldUseHeadlineHeader={!selectionModeHeader && shouldDisplayButtonsInSeparateLine}
                     shouldDisplayHelpButton
                     onBackButtonPress={() => {
                         if (isMobileSelectionModeEnabled) {

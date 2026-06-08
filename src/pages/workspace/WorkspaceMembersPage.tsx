@@ -1034,11 +1034,11 @@ function WorkspaceMembersPage({personalDetails, route, policy}: WorkspaceMembers
         <WorkspacePageWithSections
             headerText={selectionModeHeader ? translate('common.selectMultiple') : translate('workspace.common.members')}
             route={route}
-            icon={!selectionModeHeader ? illustrations.ReceiptWrangler : undefined}
+            icon={!selectionModeHeader && shouldDisplayButtonsInSeparateLine ? illustrations.ReceiptWrangler : undefined}
             headerContent={!shouldDisplayButtonsInSeparateLine && getHeaderButtons()}
             testID="WorkspaceMembersPage"
             shouldShowLoading={false}
-            shouldUseHeadlineHeader={!selectionModeHeader}
+            shouldUseHeadlineHeader={!selectionModeHeader && shouldDisplayButtonsInSeparateLine}
             shouldShowOfflineIndicatorInWideScreen
             shouldShowNonAdmin
             policyFeature={CONST.POLICY.POLICY_FEATURE.MEMBERS}

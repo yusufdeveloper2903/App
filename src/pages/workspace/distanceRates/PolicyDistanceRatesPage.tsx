@@ -516,8 +516,8 @@ function PolicyDistanceRatesPage({
                 shouldShowOfflineIndicatorInWideScreen
             >
                 <HeaderWithBackButton
-                    icon={!selectionModeHeader ? CarIce : undefined}
-                    shouldUseHeadlineHeader={!selectionModeHeader}
+                    icon={!selectionModeHeader && shouldDisplayButtonsInSeparateLine ? CarIce : undefined}
+                    shouldUseHeadlineHeader={!selectionModeHeader && shouldDisplayButtonsInSeparateLine}
                     title={translate(!selectionModeHeader ? 'workspace.common.distanceRates' : 'common.selectMultiple')}
                     shouldShowBackButton={shouldUseNarrowLayout}
                     shouldDisplayHelpButton

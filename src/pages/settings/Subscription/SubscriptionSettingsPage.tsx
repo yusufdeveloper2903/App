@@ -17,7 +17,8 @@ import type {PlatformStackScreenProps} from '@libs/Navigation/PlatformStackNavig
 import type {SettingsSplitNavigatorParamList} from '@libs/Navigation/types';
 import type {SkeletonSpanReasonAttributes} from '@libs/telemetry/useSkeletonSpan';
 import ONYXKEYS from '@src/ONYXKEYS';
-import SCREENS from '@src/SCREENS';
+import ROUTES from '@src/ROUTES';
+import type SCREENS from '@src/SCREENS';
 import CardSection from './CardSection/CardSection';
 import SubscriptionPlan from './SubscriptionPlan';
 
@@ -42,7 +43,7 @@ function SubscriptionSettingsPage({route}: SubscriptionSettingsPageProps) {
         if (shouldShowPage || isAppLoading) {
             return;
         }
-        Navigation.removeScreenFromNavigationState(SCREENS.SETTINGS.SUBSCRIPTION.ROOT);
+        Navigation.setNavigationActionToMicrotaskQueue(() => Navigation.goBack(ROUTES.SETTINGS_PROFILE.getRoute()));
     }, [isAppLoading, shouldShowPage]);
 
     if (!shouldShowPage && isAppLoading) {

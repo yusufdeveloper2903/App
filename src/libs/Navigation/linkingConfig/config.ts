@@ -1935,6 +1935,7 @@ const config: LinkingOptions<RootNavigatorParamList>['config'] = {
                         [SCREENS.TRAVEL.WORKSPACE_ADDRESS]: ROUTES.TRAVEL_WORKSPACE_ADDRESS.route,
                         [SCREENS.TRAVEL.LEGAL_ENTITY_TAX_ID]: ROUTES.TRAVEL_LEGAL_ENTITY_TAX_ID.route,
                         [SCREENS.TRAVEL.VERIFY_ACCOUNT]: ROUTES.TRAVEL_VERIFY_ACCOUNT.route,
+                        [SCREENS.TRAVEL.MISSING_PERSONAL_DETAILS]: ROUTES.TRAVEL_MISSING_PERSONAL_DETAILS.route,
                     },
                 },
                 [SCREENS.RIGHT_MODAL.SEARCH_COLUMNS]: {

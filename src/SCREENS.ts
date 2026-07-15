@@ -42,6 +42,7 @@ const SCREENS = {
         LEGAL_ENTITY_TAX_ID: 'Travel_LegalEntityTaxID',
         TRAVEL_DOT_LINK_WEB_VIEW: 'Travel_DotLinkWebView',
         VERIFY_ACCOUNT: 'Travel_VerifyAccount',
+        MISSING_PERSONAL_DETAILS: 'Travel_MissingPersonalDetails',
         MISSING_PERSONAL_DETAILS_CONFIRM_MAGIC_CODE: 'Travel_MissingPersonalDetails_ConfirmMagicCode',
     },
     SEARCH: {

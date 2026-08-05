@@ -252,12 +252,19 @@ async function importTransactionsFromCSV(
     accountID: number,
     existingCardID?: number,
     previouslySavedLayout?: SavedCSVColumnLayoutData,
+    existingCard?: Card,
 ): Promise<ImportFinalModal> {
     const settings = spreadsheet.importTransactionSettings ?? {};
-    const {cardDisplayName = 'Imported Card', currency = CONST.CURRENCY.USD, isReimbursable = true, flipAmountSign = false} = settings;
+    const resolvedSettings: ImportTransactionSettings = {
+        cardDisplayName: settings.cardDisplayName ?? existingCard?.nameValuePairs?.cardTitle ?? 'Imported Card',
+        currency: settings.currency ?? previouslySavedLayout?.accountDetails?.currency ?? CONST.CURRENCY.USD,
+        isReimbursable: settings.isReimbursable ?? existingCard?.reimbursable ?? true,
+        flipAmountSign: settings.flipAmountSign ?? previouslySavedLayout?.flipAmountSign ?? false,
+    };
+    const {cardDisplayName = 'Imported Card', currency = CONST.CURRENCY.USD, isReimbursable = true, flipAmountSign = false} = resolvedSettings;
 
     // Build transaction list from spreadsheet
-    const transactionList = buildTransactionListFromSpreadsheet(spreadsheet, settings);
+    const transactionList = buildTransactionListFromSpreadsheet(spreadsheet, resolvedSettings);
 
     if (transactionList.length === 0) {
         return {

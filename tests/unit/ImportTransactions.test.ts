@@ -4,6 +4,7 @@ import * as API from '@libs/API';
 
 import CONST from '@src/CONST';
 import ONYXKEYS from '@src/ONYXKEYS';
+import type {Card} from '@src/types/onyx';
 import type ImportedSpreadsheet from '@src/types/onyx/ImportedSpreadsheet';
 import type {SavedCSVColumnLayoutData} from '@src/types/onyx/SavedCSVColumnLayout';
 
@@ -922,6 +923,56 @@ describe('ImportTransactions', () => {
             expect(params.cardID).toBe(existingCardID);
             const optimisticData = getRequiredOnyxUpdates(onyxData, 'optimisticData');
             expect(optimisticData).not.toEqual(expect.arrayContaining([expect.objectContaining({key: ONYXKEYS.CARD_LIST})]));
+        });
+
+        it('REPRO 97779: re-import into an existing card keeps the saved flip and currency', async () => {
+            const existingCardID = 987654321;
+            // The repro's second upload: all-negative amounts, no importTransactionSettings (the settings
+            // page is skipped on the existing-card route), and a saved layout from the first upload.
+            const negativeSpreadsheet = createMock<ImportedSpreadsheet>({
+                data: [
+                    ['Date', '2024-01-15', '2024-01-20'],
+                    ['Merchant', 'Coffee Shop', 'Restaurant'],
+                    ['Amount', '-5.50', '-25.00'],
+                ],
+                columns: {0: 'date', 1: 'merchant', 2: 'amount'},
+                containsHeader: true,
+            });
+            const previouslySavedLayout = createMock<SavedCSVColumnLayoutData>({
+                name: 'q',
+                flipAmountSign: true,
+                reimbursable: true,
+                accountDetails: {bank: CONST.PERSONAL_CARDS.BANK_NAME.CSV, currency: 'EUR', accountID: 'q'},
+            });
+
+            await importTransactionsFromCSV(negativeSpreadsheet, CURRENT_USER_ACCOUNT_ID, existingCardID, previouslySavedLayout);
+
+            const [, params] = getRequiredWriteCall(writeSpy.mock.calls, 0);
+            expect(JSON.parse(String(params.transactionList))).toEqual([expect.objectContaining({amount: 550}), expect.objectContaining({amount: 2500})]);
+            expect(params.currency).toBe('EUR');
+            expect(JSON.parse(String(params.columnMappings))).toEqual(expect.objectContaining({flipAmountSign: true}));
+        });
+
+        it("REPRO 97779: the existing card's current name and reimbursable flag win over the saved layout", async () => {
+            const existingCardID = 987654321;
+            const previouslySavedLayout = createMock<SavedCSVColumnLayoutData>({
+                name: 'Old name',
+                flipAmountSign: true,
+                reimbursable: true,
+                accountDetails: {bank: CONST.PERSONAL_CARDS.BANK_NAME.CSV, currency: 'EUR', accountID: 'Old name'},
+            });
+            const existingCard = createMock<Card>({
+                cardID: existingCardID,
+                reimbursable: false,
+                nameValuePairs: createMock<Card['nameValuePairs']>({cardTitle: 'Renamed after the first import'}),
+            });
+
+            await importTransactionsFromCSV(validSpreadsheet, CURRENT_USER_ACCOUNT_ID, existingCardID, previouslySavedLayout, existingCard);
+
+            const [, params] = getRequiredWriteCall(writeSpy.mock.calls, 0);
+            expect(params.cardName).toBe('Renamed after the first import');
+            expect(params.reimbursable).toBe(false);
+            expect(params.currency).toBe('EUR');
         });
     });
 });

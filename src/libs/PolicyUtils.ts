@@ -2762,6 +2762,26 @@ function isDeletedPolicyEmployee(policyEmployee: PolicyEmployee, isOffline: bool
     return !isOffline && policyEmployee.pendingAction === CONST.RED_BRICK_ROAD_PENDING_ACTION.DELETE && isEmptyObject(policyEmployee.errors);
 }
 
+/**
+ * Get the secondary logins that are duplicates of a primary login already present in the employee list.
+ *
+ * Inviting a member by their secondary login leaves that login in the employee list, while the backend adds the
+ * account's primary login next to it, so the same person ends up stored twice. primaryLoginsInvited pairs them.
+ * Both sides must be present before a login is treated as a duplicate, so an invite that is still in flight, or a
+ * member whose personal details simply haven't loaded, is never swept up.
+ */
+function getDuplicateSecondaryLogins(policy: OnyxEntry<Policy>): Set<string> {
+    const employeeList = policy?.employeeList ?? {};
+    const duplicateLogins = new Set<string>();
+    for (const [secondaryLogin, primaryLogin] of Object.entries(policy?.primaryLoginsInvited ?? {})) {
+        if (!(secondaryLogin in employeeList) || !(primaryLogin in employeeList)) {
+            continue;
+        }
+        duplicateLogins.add(secondaryLogin);
+    }
+    return duplicateLogins;
+}
+
 function hasOnlyPersonalPolicies(policies: OnyxCollection<Policy>) {
     return !Object.values(policies ?? {}).some((policy) => policy && policy.type !== CONST.POLICY.TYPE.PERSONAL && policy.pendingAction !== CONST.RED_BRICK_ROAD_PENDING_ACTION.DELETE);
 }
@@ -3245,6 +3265,7 @@ export {
     createFilteredMemberCountSelector,
     createInvoiceConfigurationTextSelector,
     isDeletedPolicyEmployee,
+    getDuplicateSecondaryLogins,
     isInstantSubmitEnabled,
     isDelayedSubmissionEnabled,
     getCorrectedAutoReportingFrequency,

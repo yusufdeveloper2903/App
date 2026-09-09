@@ -4383,9 +4383,20 @@ function clearErrors(policyID: string) {
 
 /**
  * Dismiss the informative messages about which policy members were added with primary logins when invited with their secondary login.
+ * The secondary logins are dropped from the employee list in the same merge, because primaryLoginsInvited is the only
+ * thing that identifies them as duplicates, so leaving them behind would make the duplicate rows reappear for good.
  */
-function dismissAddedWithPrimaryLoginMessages(policyID: string) {
-    Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policyID}`, {primaryLoginsInvited: null});
+function dismissAddedWithPrimaryLoginMessages(policy: OnyxEntry<Policy>) {
+    if (!policy?.id) {
+        return;
+    }
+
+    const employeeList: OnyxCollectionInputValue<PolicyEmployee> = {};
+    for (const secondaryLogin of PolicyUtils.getDuplicateSecondaryLogins(policy)) {
+        employeeList[secondaryLogin] = null;
+    }
+
+    Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policy.id}`, {primaryLoginsInvited: null, employeeList});
 }
 
 /**

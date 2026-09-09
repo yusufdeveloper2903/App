@@ -640,6 +640,62 @@ describe('WorkspaceMembers', () => {
         });
     });
 
+    describe('Members invited with their secondary login', () => {
+        const primaryEmail = 'primary@example.com';
+        const primaryAccountID = 1237;
+        const secondaryEmail = 'secondary@example.com';
+
+        const setUpInvitedWithSecondaryLogin = async () => {
+            await act(async () => {
+                await Onyx.merge(`${ONYXKEYS.PERSONAL_DETAILS_LIST}`, {
+                    [primaryAccountID]: TestHelper.buildPersonalDetails(primaryEmail, primaryAccountID, 'Primary'),
+                });
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policy.id}`, {
+                    primaryLoginsInvited: {[secondaryEmail]: primaryEmail},
+                    employeeList: {
+                        [primaryEmail]: {email: primaryEmail, role: CONST.POLICY.ROLE.USER},
+                        [secondaryEmail]: {email: secondaryEmail, role: CONST.POLICY.ROLE.USER},
+                    },
+                });
+            });
+        };
+
+        it('should not render a second row for the secondary login', async () => {
+            // Given a policy where the same member is stored under both their secondary and their primary login
+            await setUpInvitedWithSecondaryLogin();
+
+            const {unmount} = renderPage(SCREENS.WORKSPACE.MEMBERS, {policyID: policy.id});
+            await waitForBatchedUpdatesWithAct();
+
+            // When the members list renders
+            await screen.findByLabelText(new RegExp(`^Primary User, ${primaryEmail}`));
+
+            // Then only the primary login has a row
+            expect(screen.queryByLabelText(new RegExp(`^${secondaryEmail}`))).not.toBeOnTheScreen();
+
+            unmount();
+        });
+
+        it('should not bring the secondary login row back after the added with primary login message is dismissed', async () => {
+            // Given a policy where the same member is stored under both their secondary and their primary login
+            await setUpInvitedWithSecondaryLogin();
+
+            const {unmount} = renderPage(SCREENS.WORKSPACE.MEMBERS, {policyID: policy.id});
+            await waitForBatchedUpdatesWithAct();
+
+            await screen.findByLabelText(new RegExp(`^Primary User, ${primaryEmail}`));
+
+            // When the "added with primary login" message is dismissed
+            fireEvent.press(screen.getByLabelText(TestHelper.translateLocal('common.dismiss')));
+            await waitForBatchedUpdatesWithAct();
+
+            // Then the secondary login stays out of the list
+            expect(screen.queryByLabelText(new RegExp(`^${secondaryEmail}`))).not.toBeOnTheScreen();
+
+            unmount();
+        });
+    });
+
     describe('Role display on Submit workspaces', () => {
         it('should show the workspace owner as Editor instead of Owner', async () => {
             // Given a Submit workspace, where every member (including the owner) uses the flat Editor role

@@ -58,6 +58,7 @@ import {
     canMemberManageMemberWithRole,
     canMemberWrite,
     getConnectionExporters,
+    getDuplicateSecondaryLogins,
     getMemberAccountIDsForWorkspace,
     getReimburserEmail,
     isControlPolicy,
@@ -335,8 +336,16 @@ function WorkspaceMembersPage({personalDetails, route, policy}: WorkspaceMembers
         const shouldFilter = shouldFilterExpensifyTeam(policyOwner, currentUserLogin);
         const result: Array<{email: string; policyEmployee: PolicyEmployee; accountID: number; details: PersonalDetails}> = [];
 
+        const duplicateSecondaryLogins = getDuplicateSecondaryLogins(policy);
+
         for (const [email, policyEmployee] of Object.entries(policy?.employeeList ?? {})) {
             if (isDeletedPolicyEmployee(policyEmployee, isOffline)) {
+                continue;
+            }
+
+            // Inviting a member with their secondary login leaves that login in the employee list next to the
+            // primary login the backend returns, which would otherwise render the same person twice.
+            if (duplicateSecondaryLogins.has(email)) {
                 continue;
             }
 
@@ -366,7 +375,7 @@ function WorkspaceMembersPage({personalDetails, route, policy}: WorkspaceMembers
             result.push({email, policyEmployee, accountID, details});
         }
         return result;
-    }, [policy?.employeeList, policyMemberEmailsToAccountIDs, isOffline, personalDetails, policyOwner, currentUserLogin, formatPhoneNumber]);
+    }, [policy, policyMemberEmailsToAccountIDs, isOffline, personalDetails, policyOwner, currentUserLogin, formatPhoneNumber]);
 
     const hasAnyCustomField1 = useMemo(() => filteredMembers.some(({policyEmployee}) => !!policyEmployee.employeeUserID), [filteredMembers]);
     const hasAnyCustomField2 = useMemo(() => filteredMembers.some(({policyEmployee}) => !!policyEmployee.employeePayrollID), [filteredMembers]);
@@ -503,7 +512,7 @@ function WorkspaceMembersPage({personalDetails, route, policy}: WorkspaceMembers
                     // eslint-disable-next-line @typescript-eslint/naming-convention
                     messages={{0: translate('workspace.people.addedWithPrimary')}}
                     containerStyles={[styles.pb5, styles.ph5]}
-                    onDismiss={() => dismissAddedWithPrimaryLoginMessages(policyID)}
+                    onDismiss={() => dismissAddedWithPrimaryLoginMessages(policy)}
                 />
             )}
         </View>

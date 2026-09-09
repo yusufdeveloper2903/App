@@ -18,6 +18,13 @@ type PolicyEmployee = OnyxCommon.OnyxValueWithOfflineFeedback<{
 
     email?: string;
 
+    /**
+     * Client-only. The account this client resolved the invited login to, recorded when the entry is created
+     * optimistically. It is what lets us recognize the entry later as our own key for an account the backend has
+     * since added under a different login. Never set on backend-supplied entries.
+     */
+    invitedAccountID?: number;
+
     /** Determines if this employee should approve a report. If report total > approvalLimit, next approver will be 'overLimitForwardsTo', otherwise 'forwardsTo'. Set to null to clear. */
     approvalLimit?: number | null;
 

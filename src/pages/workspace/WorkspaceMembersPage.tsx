@@ -39,6 +39,7 @@ import {
     downloadMembersCSV,
     openWorkspaceMembersPage,
     removeMembers,
+    removeStaleInvitedLogins,
     updateWorkspaceMembersRole,
 } from '@libs/actions/Policy/Member';
 import {removeApprovalWorkflow as removeApprovalWorkflowAction, updateApprovalWorkflow} from '@libs/actions/Workflow';
@@ -211,6 +212,14 @@ function WorkspaceMembersPage({personalDetails, route, policy}: WorkspaceMembers
         }
         getWorkspaceMembers();
     }, [isOffline, prevIsOffline, getWorkspaceMembers]);
+
+    // Inviting someone with a secondary contact method leaves our optimistic key behind once the backend adds the
+    // account under its primary login. This repairs the employeeList rather than hiding the row, so the member count
+    // and every other screen reading employeeList stay correct. It is kept out of getWorkspaceMembers because that
+    // callback's dependencies drive an API read, and adding personalDetails there would refire it on every change.
+    useEffect(() => {
+        removeStaleInvitedLogins(policy, personalDetails);
+    }, [policy, personalDetails]);
 
     /**
      * Open the modal to invite a user

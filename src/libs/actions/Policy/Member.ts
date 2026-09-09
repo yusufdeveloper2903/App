@@ -27,7 +27,17 @@ import * as FormActions from '@userActions/FormActions';
 
 import CONST from '@src/CONST';
 import ONYXKEYS from '@src/ONYXKEYS';
-import type {ImportedSpreadsheetMemberData, InvitedEmailsToAccountIDs, Policy, PolicyEmployee, PolicyOwnershipChangeChecks, Report, ReportAction, ReportActions} from '@src/types/onyx';
+import type {
+    ImportedSpreadsheetMemberData,
+    InvitedEmailsToAccountIDs,
+    PersonalDetailsList,
+    Policy,
+    PolicyEmployee,
+    PolicyOwnershipChangeChecks,
+    Report,
+    ReportAction,
+    ReportActions,
+} from '@src/types/onyx';
 import type {ImportFinalModal} from '@src/types/onyx/ImportedSpreadsheet';
 import type {PendingAction} from '@src/types/onyx/OnyxCommon';
 import type {JoinWorkspaceResolution} from '@src/types/onyx/OriginalMessage';
@@ -346,6 +356,42 @@ function findNextApproverInChain(policy: OnyxEntry<Policy>, selectedMemberEmails
     }
 
     return policy?.owner;
+}
+
+/**
+ * Drop the employeeList keys this client created for an invite whose account the backend has since added under a
+ * different login, which is what happens when someone is invited with a secondary contact method.
+ *
+ * Only a key carrying invitedAccountID is ever removed, so a backend-supplied member whose personal details simply
+ * have not loaded is never touched, and only once the account is actually listed under its canonical login, so
+ * nothing is removed while the invite is still in flight or if it failed.
+ */
+function removeStaleInvitedLogins(policy: OnyxEntry<Policy>, personalDetailsList: OnyxEntry<PersonalDetailsList>) {
+    if (!policy?.id) {
+        return;
+    }
+
+    const employeeList = policy.employeeList ?? {};
+    const staleLogins: OnyxCollectionInputValue<PolicyEmployee> = {};
+    for (const [login, policyEmployee] of Object.entries(employeeList)) {
+        const invitedAccountID = policyEmployee?.invitedAccountID;
+        if (!invitedAccountID || policyEmployee.pendingAction) {
+            continue;
+        }
+
+        const canonicalLogin = personalDetailsList?.[invitedAccountID]?.login;
+        if (!canonicalLogin || canonicalLogin === login || !employeeList[canonicalLogin]) {
+            continue;
+        }
+
+        staleLogins[login] = null;
+    }
+
+    if (isEmptyObject(staleLogins)) {
+        return;
+    }
+
+    Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policy.id}`, {employeeList: staleLogins});
 }
 
 /**
@@ -880,9 +926,19 @@ function buildAddMembersToWorkspaceOnyxData(
     const optimisticMembersState: OnyxCollectionInputValue<PolicyEmployee> = {};
     const successMembersState: OnyxCollectionInputValue<PolicyEmployee> = {};
     const failureMembersState: OnyxCollectionInputValue<PolicyEmployee> = {};
+    // Record which account each login was resolved to. The backend adds the member under their primary login, so an
+    // invite made with a secondary login leaves our key behind under a login the response never mentions. This marker
+    // is the only thing that survives long enough to pair the two: the invite draft is cleared as soon as the
+    // optimistic row is highlighted, well before the response lands.
+    const accountIDByLogin: Record<string, number> = {};
+    for (const [memberLogin, accountID] of Object.entries(invitedEmailsToAccountIDs)) {
+        accountIDByLogin[PhoneNumber.addSMSDomainIfPhoneNumber(memberLogin)] = accountID;
+    }
+
     for (const email of logins) {
         optimisticMembersState[email] = {
             email,
+            invitedAccountID: accountIDByLogin[email],
             pendingAction: CONST.RED_BRICK_ROAD_PENDING_ACTION.ADD,
             role: effectiveRole,
             submitsTo: approverEmail ?? getDefaultApprover(policy),
@@ -1462,6 +1518,7 @@ function clearImportedSpreadsheetMemberData() {
 
 export {
     removeMembers,
+    removeStaleInvitedLogins,
     buildUpdateWorkspaceMembersRoleOnyxData,
     updateWorkspaceMembersRole,
     requestWorkspaceOwnerChange,

@@ -20,6 +20,9 @@ import WorkspaceMembersPage from '@pages/workspace/WorkspaceMembersPage';
 import CONST from '@src/CONST';
 import ONYXKEYS from '@src/ONYXKEYS';
 import SCREENS from '@src/SCREENS';
+import type {InvitedEmailsToAccountIDs, Policy} from '@src/types/onyx';
+
+import type {OnyxEntry} from 'react-native-onyx';
 
 import {PortalProvider} from '@gorhom/portal';
 import {NavigationContainer} from '@react-navigation/native';
@@ -637,6 +640,150 @@ describe('WorkspaceMembers', () => {
 
             unmount();
             await waitForBatchedUpdatesWithAct();
+        });
+    });
+
+    describe('Members invited with their secondary login', () => {
+        const primaryEmail = 'primary@example.com';
+        const secondaryEmail = 'secondary@example.com';
+        const invitedAccountID = 1237;
+        const memberWithoutDetailsEmail = 'nodetails@example.com';
+
+        const getPolicy = () => {
+            return new Promise<OnyxEntry<Policy>>((resolve) => {
+                const connection = Onyx.connect({
+                    key: `${ONYXKEYS.COLLECTION.POLICY}${policy.id}`,
+                    callback: (value) => {
+                        Onyx.disconnect(connection);
+                        resolve(value);
+                    },
+                });
+            });
+        };
+
+        const getInviteDraft = () => {
+            return new Promise<OnyxEntry<InvitedEmailsToAccountIDs>>((resolve) => {
+                const connection = Onyx.connect({
+                    key: `${ONYXKEYS.COLLECTION.WORKSPACE_INVITE_MEMBERS_DRAFT}${policy.id}`,
+                    callback: (value) => {
+                        Onyx.disconnect(connection);
+                        resolve(value);
+                    },
+                });
+            });
+        };
+
+        it('should collapse the invite into a single row once the account is added under its primary login', async () => {
+            // Given an invite made with a secondary login, which the backend has since added under the primary login
+            await act(async () => {
+                await Onyx.merge(`${ONYXKEYS.PERSONAL_DETAILS_LIST}`, {
+                    [invitedAccountID]: TestHelper.buildPersonalDetails(primaryEmail, invitedAccountID, 'Primary'),
+                });
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policy.id}`, {
+                    employeeList: {
+                        [primaryEmail]: {email: primaryEmail, role: CONST.POLICY.ROLE.USER},
+                        [secondaryEmail]: {email: secondaryEmail, role: CONST.POLICY.ROLE.USER, invitedAccountID},
+                    },
+                });
+            });
+
+            const {unmount} = renderPage(SCREENS.WORKSPACE.MEMBERS, {policyID: policy.id});
+            await waitForBatchedUpdatesWithAct();
+
+            // When the members page renders
+            await screen.findByLabelText(new RegExp(`^Primary User, ${primaryEmail}`));
+
+            // Then the secondary login has no row of its own, and the stale key is gone from the employee list
+            expect(screen.queryByLabelText(new RegExp(`^${secondaryEmail}`))).not.toBeOnTheScreen();
+            const updatedPolicy = await getPolicy();
+            expect(updatedPolicy?.employeeList?.[secondaryEmail]).toBeUndefined();
+            expect(updatedPolicy?.employeeList?.[primaryEmail]).toBeTruthy();
+
+            unmount();
+        });
+
+        it('should keep a member whose personal details have not loaded', async () => {
+            // Given a member the backend returned but whose personal details are not loaded, so it has no marker
+            await act(async () => {
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policy.id}`, {
+                    employeeList: {
+                        [memberWithoutDetailsEmail]: {email: memberWithoutDetailsEmail, role: CONST.POLICY.ROLE.USER},
+                    },
+                });
+            });
+
+            const {unmount} = renderPage(SCREENS.WORKSPACE.MEMBERS, {policyID: policy.id});
+            await waitForBatchedUpdatesWithAct();
+
+            // When the members page renders
+            // Then the member is still shown through the fallback identity
+            await screen.findByLabelText(new RegExp(`^${memberWithoutDetailsEmail}`));
+            const updatedPolicy = await getPolicy();
+            expect(updatedPolicy?.employeeList?.[memberWithoutDetailsEmail]).toBeTruthy();
+
+            unmount();
+        });
+
+        it('should have cleared the invite draft while the invite is still optimistic', async () => {
+            // Given the members page open with an invite draft written for a secondary login
+            await act(async () => {
+                await Onyx.set(`${ONYXKEYS.COLLECTION.WORKSPACE_INVITE_MEMBERS_DRAFT}${policy.id}`, {[secondaryEmail]: invitedAccountID});
+            });
+
+            const {unmount} = renderPage(SCREENS.WORKSPACE.MEMBERS, {policyID: policy.id});
+            await waitForBatchedUpdatesWithAct();
+
+            // When the invite writes its optimistic entry, with no primary login in the employee list yet
+            await act(async () => {
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policy.id}`, {
+                    employeeList: {
+                        [secondaryEmail]: {
+                            email: secondaryEmail,
+                            role: CONST.POLICY.ROLE.USER,
+                            invitedAccountID,
+                            pendingAction: CONST.RED_BRICK_ROAD_PENDING_ACTION.ADD,
+                        },
+                    },
+                });
+            });
+            await waitForBatchedUpdatesWithAct();
+
+            await screen.findByLabelText(new RegExp(`^${secondaryEmail}`));
+
+            // Then the draft has already been cleared, so it cannot be the signal that pairs the two logins, and the
+            // in-flight entry is left alone
+            expect(await getInviteDraft()).toEqual({});
+            const updatedPolicy = await getPolicy();
+            expect(updatedPolicy?.employeeList?.[secondaryEmail]).toBeTruthy();
+
+            unmount();
+        });
+
+        it('should leave a stale key that predates the marker, which only the backend can resolve', async () => {
+            // Given a workspace already carrying the stale key from an invite made before this fix shipped
+            await act(async () => {
+                await Onyx.merge(`${ONYXKEYS.PERSONAL_DETAILS_LIST}`, {
+                    [invitedAccountID]: TestHelper.buildPersonalDetails(primaryEmail, invitedAccountID, 'Primary'),
+                });
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${policy.id}`, {
+                    employeeList: {
+                        [primaryEmail]: {email: primaryEmail, role: CONST.POLICY.ROLE.USER},
+                        [secondaryEmail]: {email: secondaryEmail, role: CONST.POLICY.ROLE.USER},
+                    },
+                });
+            });
+
+            const {unmount} = renderPage(SCREENS.WORKSPACE.MEMBERS, {policyID: policy.id});
+            await waitForBatchedUpdatesWithAct();
+
+            // When the members page renders
+            await screen.findByLabelText(new RegExp(`^Primary User, ${primaryEmail}`));
+
+            // Then the row stays, because there is no marker to pair it with the primary login. This is the known
+            // limitation of the fix, and removing it would also remove members whose details merely failed to load.
+            expect(screen.getByLabelText(new RegExp(`^${secondaryEmail}`))).toBeOnTheScreen();
+
+            unmount();
         });
     });
 

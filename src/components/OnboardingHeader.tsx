@@ -1,18 +1,15 @@
-import {useMemoizedLazyExpensifyIcons} from '@hooks/useLazyAsset';
-import useLocalize from '@hooks/useLocalize';
-import useTheme from '@hooks/useTheme';
 import useThemeStyles from '@hooks/useThemeStyles';
 
-import variables from '@styles/variables';
-
-import CONST from '@src/CONST';
-
-import React from 'react';
+import {useFocusEffect} from '@react-navigation/native';
+import React, {useContext, useEffect, useRef} from 'react';
 import {View} from 'react-native';
 
-import Icon from './Icon';
-import {PressableWithoutFeedback} from './Pressable';
-import Text from './Text';
+import type {OnboardingStickyHeaderConfig, SetOnboardingStickyHeaderConfig} from './OnboardingStickyHeader/OnboardingStickyHeaderContext';
+
+import CaretBackHeader from './CaretBackHeader';
+import CollapsibleHeaderOnKeyboardContext from './CollapsibleHeaderOnKeyboard/CollapsibleHeaderOnKeyboardContext';
+import {OnboardingStickyHeaderActionsContext} from './OnboardingStickyHeader/OnboardingStickyHeaderContext';
+import ScreenWrapperStatusContext from './ScreenWrapper/ScreenWrapperStatusContext';
 
 type OnboardingHeaderProps = {
     onBackButtonPress?: () => void;
@@ -20,36 +17,54 @@ type OnboardingHeaderProps = {
     shouldShowBackButton?: boolean;
 };
 
-/**
- * Popover-style back link: caret + "Back" label.
- * Matches the submenu back row used by PopoverMenu.
- */
-function OnboardingHeader({onBackButtonPress, shouldShowBackButton = true}: OnboardingHeaderProps) {
+type OnboardingHeaderSlotProps = OnboardingHeaderProps & {
+    setConfig: SetOnboardingStickyHeaderConfig;
+};
+
+function OnboardingHeaderSlot({onBackButtonPress, shouldShowBackButton = true, setConfig}: OnboardingHeaderSlotProps) {
     const styles = useThemeStyles();
-    const {translate} = useLocalize();
-    const theme = useTheme();
-    const icons = useMemoizedLazyExpensifyIcons(['BackArrow']);
+    const isViewportOffsetTopApplied = !!useContext(ScreenWrapperStatusContext)?.isViewportOffsetTopApplied;
+    const collapsibleHeader = useContext(CollapsibleHeaderOnKeyboardContext);
+    const onBackButtonPressRef = useRef(onBackButtonPress);
+
+    useEffect(() => {
+        onBackButtonPressRef.current = onBackButtonPress;
+    }, [onBackButtonPress]);
+
+    useFocusEffect(() => {
+        const config: OnboardingStickyHeaderConfig = {
+            shouldShowBackButton,
+            isViewportOffsetTopApplied,
+            collapsibleHeader,
+            onBackButtonPress: () => onBackButtonPressRef.current?.(),
+        };
+        setConfig(config);
+
+        return () => setConfig((currentConfig) => (currentConfig === config ? undefined : currentConfig));
+    });
+
+    return <View style={styles.onboardingHeaderContainer} />;
+}
+
+function OnboardingHeader({onBackButtonPress, shouldShowBackButton = true}: OnboardingHeaderProps) {
+    const setStickyHeaderConfig = useContext(OnboardingStickyHeaderActionsContext);
+
+    if (!setStickyHeaderConfig) {
+        return (
+            <CaretBackHeader
+                onBackButtonPress={onBackButtonPress}
+                shouldShowBackButton={shouldShowBackButton}
+                sentryLabel="OnboardingHeader-Back"
+            />
+        );
+    }
 
     return (
-        <View style={[styles.onboardingHeaderContainer]}>
-            {shouldShowBackButton ? (
-                <PressableWithoutFeedback
-                    onPress={onBackButtonPress}
-                    style={[styles.flexRow, styles.alignItemsCenter, styles.gap3]}
-                    role={CONST.ROLE.BUTTON}
-                    accessibilityLabel={translate('common.back')}
-                    sentryLabel="OnboardingHeader-Back"
-                >
-                    <Icon
-                        src={icons.BackArrow}
-                        fill={theme.icon}
-                        width={variables.iconSizeNormal}
-                        height={variables.iconSizeNormal}
-                    />
-                    <Text style={styles.createMenuHeaderText}>{translate('common.back')}</Text>
-                </PressableWithoutFeedback>
-            ) : null}
-        </View>
+        <OnboardingHeaderSlot
+            onBackButtonPress={onBackButtonPress}
+            shouldShowBackButton={shouldShowBackButton}
+            setConfig={setStickyHeaderConfig}
+        />
     );
 }
 

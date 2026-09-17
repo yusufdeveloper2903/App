@@ -11,9 +11,11 @@ import type {LayoutChangeEvent} from 'react-native';
 import {useIsFocused} from '@react-navigation/native';
 import React, {useEffect, useRef} from 'react';
 import {useReanimatedKeyboardAnimation} from 'react-native-keyboard-controller';
-import Reanimated, {Easing, useAnimatedReaction, useAnimatedStyle, useSharedValue, withTiming} from 'react-native-reanimated';
+import Reanimated, {Easing, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming} from 'react-native-reanimated';
 
 import type {CollapsibleHeaderOnKeyboardProps} from './types';
+
+import CollapsibleHeaderOnKeyboardContext from './CollapsibleHeaderOnKeyboardContext';
 
 const COLLAPSE_DURATION = 100;
 const RESTORE_DURATION = 300;
@@ -201,15 +203,24 @@ function CollapsibleHeaderOnKeyboard({children, collapsibleHeaderOffset = 0, alw
         return {transform: [{translateY: animatedHeight.get() - naturalHeight.get()}]};
     });
 
+    const collapseState = useDerivedValue(() => {
+        if (animatedHeight.get() >= naturalHeight.get()) {
+            return {collapsedHeight: -1, translateY: 0};
+        }
+        return {collapsedHeight: animatedHeight.get(), translateY: isInLandscapeModeSV.get() ? animatedHeight.get() - naturalHeight.get() : 0};
+    });
+
     return (
-        <Reanimated.View style={outerStyle}>
-            <Reanimated.View
-                onLayout={onLayout}
-                style={innerStyle}
-            >
-                {children}
+        <CollapsibleHeaderOnKeyboardContext.Provider value={collapseState}>
+            <Reanimated.View style={outerStyle}>
+                <Reanimated.View
+                    onLayout={onLayout}
+                    style={innerStyle}
+                >
+                    {children}
+                </Reanimated.View>
             </Reanimated.View>
-        </Reanimated.View>
+        </CollapsibleHeaderOnKeyboardContext.Provider>
     );
 }
 

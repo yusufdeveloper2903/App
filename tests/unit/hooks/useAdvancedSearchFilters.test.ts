@@ -403,6 +403,35 @@ describe('useAdvancedSearchFilters', () => {
             });
         });
 
+        it('groups bank account filter with the withdrawal filters so Bank Reconciliation can filter by the account that was debited', async () => {
+            const bankAccountID = 42;
+            await Onyx.merge(ONYXKEYS.BANK_ACCOUNT_LIST, {
+                [bankAccountID]: {
+                    accountData: {
+                        bankAccountID,
+                        accountNumber: '123456789012',
+                        type: CONST.BANK_ACCOUNT.TYPE.BUSINESS,
+                        state: CONST.BANK_ACCOUNT.STATE.OPEN,
+                        additionalData: {bankName: CONST.BANK_NAMES.CHASE},
+                    },
+                },
+            });
+
+            const {result} = renderHook(() => useAdvancedSearchFilters(CONST.SEARCH.DATA_TYPES.EXPENSE, undefined), {wrapper});
+
+            await waitFor(() => {
+                const withdrawalSection = result.current.find((section) => section.includes(CONST.SEARCH.SYNTAX_FILTER_KEYS.WITHDRAWAL_ID));
+                expect(withdrawalSection).toEqual([
+                    CONST.SEARCH.SYNTAX_FILTER_KEYS.WITHDRAWAL_ID,
+                    CONST.SEARCH.SYNTAX_FILTER_KEYS.BANK_ACCOUNT,
+                    CONST.SEARCH.SYNTAX_FILTER_KEYS.WITHDRAWAL_TYPE,
+                    CONST.SEARCH.SYNTAX_FILTER_KEYS.WITHDRAWAL_STATUS,
+                    CONST.SEARCH.SYNTAX_FILTER_KEYS.WITHDRAWN,
+                ]);
+                expect(result.current.flat().filter((key) => key === CONST.SEARCH.SYNTAX_FILTER_KEYS.BANK_ACCOUNT)).toHaveLength(1);
+            });
+        });
+
         it('hides bank account filter when only personal deposit accounts are present', async () => {
             const bankAccountID = 42;
             await Onyx.merge(ONYXKEYS.BANK_ACCOUNT_LIST, {

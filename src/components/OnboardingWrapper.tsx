@@ -1,9 +1,11 @@
 import useThemeStyles from '@hooks/useThemeStyles';
 
-import React from 'react';
+import React, {useContext, useState} from 'react';
 import {View} from 'react-native';
 
+import FocusTrapContainerElement from './FocusTrap/FocusTrapContainerElement';
 import FocusTrapForScreens from './FocusTrap/FocusTrapForScreen';
+import {OnboardingStickyHeaderElementContext} from './OnboardingStickyHeader/OnboardingStickyHeaderContext';
 
 type OnboardingWrapperProps = {
     children: React.ReactNode;
@@ -11,10 +13,20 @@ type OnboardingWrapperProps = {
 
 function OnboardingWrapper({children}: OnboardingWrapperProps) {
     const styles = useThemeStyles();
+    const stickyHeaderElement = useContext(OnboardingStickyHeaderElementContext);
+    const [contentElement, setContentElement] = useState<HTMLElement | null>(null);
+    const containerElements = stickyHeaderElement && contentElement ? [stickyHeaderElement, contentElement] : undefined;
 
     return (
-        <FocusTrapForScreens>
-            <View style={styles.h100}>{children}</View>
+        <FocusTrapForScreens focusTrapSettings={containerElements ? {containerElements} : undefined}>
+            <View style={styles.h100}>
+                <FocusTrapContainerElement
+                    onContainerElementChanged={setContentElement}
+                    style={styles.h100}
+                >
+                    {children}
+                </FocusTrapContainerElement>
+            </View>
         </FocusTrapForScreens>
     );
 }

@@ -1,3 +1,5 @@
+import OnboardingStickyHeader from '@components/OnboardingStickyHeader';
+
 import useThemeStyles from '@hooks/useThemeStyles';
 
 import React from 'react';
@@ -16,7 +18,7 @@ function OnboardingModalNavigatorContentWrapper({children, onboardingIsMediumOrL
             onClick={(e) => e.stopPropagation()}
             style={[styles.maxHeight100Percentage, styles.overflowHidden, styles.OnboardingNavigatorInnerView(onboardingIsMediumOrLargerScreenWidth)]}
         >
-            {children}
+            <OnboardingStickyHeader>{children}</OnboardingStickyHeader>
         </View>
     );
 }

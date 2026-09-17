@@ -301,6 +301,26 @@ describe('reportAttributes compute — policy change code flow', () => {
         expect(result?.reports).toHaveProperty('r2');
     });
 
+    it('reconciles a value restored from disk against the live reports on the first flush', () => {
+        const restoredValue: ReportAttributesDerivedValue = {
+            reports: {
+                r1: {reportName: 'Stale Name', isEmpty: false, brickRoadStatus: undefined, requiresAttention: false, reportErrors: {}},
+            },
+            locale: CONST.LOCALES.EN,
+        };
+        const args = buildArgs();
+        args[1] = CONST.LOCALES.EN;
+
+        const result = config.compute(args, {
+            currentValue: restoredValue,
+            sourceValues: undefined,
+            triggeredKeys: new Set<OnyxKey>([ONYXKEYS.NVP_PREFERRED_LOCALE]),
+        });
+
+        expect(result?.reports.r1?.reportName).toBe('Test Report');
+        expect(result?.reports).toHaveProperty('r2');
+    });
+
     it('scopes the first policy load to reports referencing the loaded policies when currentValue is already populated', () => {
         // Reproduces the ReconnectApp-after-open case: attributes were already computed, then ~1k policies
         // land. Only reports whose policy actually arrived should recompute — not every report.

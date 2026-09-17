@@ -408,10 +408,10 @@ export default createOnyxDerivedValueConfig({
 
         // Use incremental updates when currentValue is already populated and no full recompute is required.
         // If currentValue has no reports (fresh install or cleared storage), fall back to a full scan.
-        const useIncrementalUpdates = !!currentValue?.reports && Object.keys(currentValue.reports).length > 0 && !needsFullRecompute;
+        const useIncrementalUpdates = !!currentValue?.reports && Object.keys(currentValue.reports).length > 0 && !needsFullRecompute && !!sourceValues;
 
         // if we already computed the report attributes and there is no new reports data, return the current value
-        if ((useIncrementalUpdates && !sourceValues) || !reports) {
+        if (!reports) {
             return currentValue ?? {reports: {}, locale: null};
         }
 

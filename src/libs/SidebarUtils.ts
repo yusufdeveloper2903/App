@@ -194,6 +194,10 @@ function shouldDisplayReportInLHN({
         return {shouldDisplay: false};
     }
 
+    if (report.parentReportID && !parentReport && !!report.errorFields?.createChat) {
+        return {shouldDisplay: false};
+    }
+
     // Handle reports with errors
     if (hasErrorsOtherThanFailedReceipt && !isReportInAccessible) {
         return {shouldDisplay: true, hasErrorsOtherThanFailedReceipt: true};

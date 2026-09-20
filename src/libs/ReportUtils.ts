@@ -1324,10 +1324,21 @@ function getReport(reportID: string, reports: Report[] | OnyxCollection<Report>)
  * Returns the parentReport if the given report is a thread
  */
 function getParentReport(report: OnyxEntry<Report>): OnyxEntry<Report> {
-    if (!report?.parentReportID) {
+    const parentReportID = report?.parentReportID ?? allReportNameValuePair?.[`${ONYXKEYS.COLLECTION.REPORT_NAME_VALUE_PAIRS}${report?.reportID}`]?.parentReportID;
+    if (!parentReportID) {
         return undefined;
     }
-    return getReport(report.parentReportID, deprecatedAllReports);
+    return getReport(String(parentReportID), deprecatedAllReports);
+}
+
+/**
+ * Returns the chat report a money request report belongs to.
+ */
+function getChatReportForMoneyRequestReport(report: OnyxEntry<Report>): OnyxEntry<Report> {
+    if (!isMoneyRequestReport(report)) {
+        return report;
+    }
+    return getReportOrDraftReport(report?.chatReportID) ?? getParentReport(report);
 }
 
 /**
@@ -14467,6 +14478,7 @@ export {
     getReportRecipientAccountIDs,
     shouldCurrentUserSubmitReport,
     canSubmitAndIsAwaitingForCurrentUser,
+    getChatReportForMoneyRequestReport,
     getParentReport,
     getReportOrDraftReport,
     getRoom,

@@ -38,6 +38,7 @@ import {
     findSelfDMReportID,
     generateReportID,
     getAllPolicyExpenseChatReportActions,
+    getChatReportForMoneyRequestReport,
     getReportOrDraftReport,
     hasViolations as hasViolationsReportUtils,
     isMoneyRequestReport as isMoneyRequestReportReportUtils,
@@ -265,7 +266,7 @@ function useExpenseSubmission(params: UseExpenseSubmissionParams) {
     const [selfDMReport] = useOnyx(`${ONYXKEYS.COLLECTION.REPORT}${findSelfDMReportID()}`);
     const reportTransactions = useReportTransactions(report?.reportID);
     const isMoneyRequestReport = isMoneyRequestReportReportUtils(report);
-    const currentChatReport = isMoneyRequestReport ? getReportOrDraftReport(report?.chatReportID) : report;
+    const currentChatReport = getChatReportForMoneyRequestReport(report);
     const isSelfDMDestination = isSelfDMSoleDestination(participants, iouType, currentUserPersonalDetails.accountID);
     // A self-DM destination passes `undefined` as the chat to trackExpense, which then resolves the chat to the self-DM — a real report that is never a draft
     const destinationChatReportID = isSelfDMDestination ? undefined : currentChatReport?.reportID;
@@ -696,7 +697,7 @@ function useExpenseSubmission(params: UseExpenseSubmissionParams) {
             const isExpenseReport = isMoneyRequestReportReportUtils(report);
             let existingChatReport = report;
             if (isExpenseReport) {
-                existingChatReport = getReportOrDraftReport(report?.chatReportID);
+                existingChatReport = getChatReportForMoneyRequestReport(report);
             } else if (!report?.reportID && participant.isPolicyExpenseChat && participant.reportID) {
                 existingChatReport = getReportOrDraftReport(participant.reportID);
             }

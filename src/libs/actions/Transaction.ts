@@ -94,6 +94,7 @@ import type {NullishDeep, OnyxCollection, OnyxEntry, OnyxKey, OnyxUpdate} from '
 import {originalTransactionIDSelector} from '@selectors/Transaction';
 import {getUnixTime} from 'date-fns';
 import lodashClone from 'lodash/clone';
+import lodashOmit from 'lodash/omit';
 import Onyx from 'react-native-onyx';
 
 import {getAllTransactions} from './IOU';
@@ -1141,7 +1142,10 @@ function getChangeTransactionsReportOnyxData({
         const isUnreported = reportID === CONST.REPORT.UNREPORTED_REPORT_ID;
         const optimisticMoneyRequestReportActionID = rand64();
 
-        const originalMessage = getOriginalMessage(oldIOUAction) as OriginalMessageIOU;
+        // The new action is created by this move, so it is never a deleted action. Deletion markers on the source
+        // action must not be copied: the server omits them from its response, and Onyx.merge cannot remove a key
+        // a response does not mention, so a copied marker would survive every later refresh.
+        const originalMessage = lodashOmit(getOriginalMessage(oldIOUAction) as OriginalMessageIOU, ['deleted', 'isDeletedParentAction']) as OriginalMessageIOU;
         const actionType = isUnreported ? CONST.IOU.REPORT_ACTION_TYPE.TRACK : CONST.IOU.REPORT_ACTION_TYPE.CREATE;
         const newIOUAction = {
             ...oldIOUAction,

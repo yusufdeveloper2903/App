@@ -14,6 +14,7 @@ import useLocalize from '@hooks/useLocalize';
 import useOnyx from '@hooks/useOnyx';
 import usePrevious from '@hooks/usePrevious';
 import useResponsiveLayout from '@hooks/useResponsiveLayout';
+import useSafeAreaInsets from '@hooks/useSafeAreaInsets';
 import useScrollEventEmitter from '@hooks/useScrollEventEmitter';
 import useSingleExecution from '@hooks/useSingleExecution';
 import useThemeStyles from '@hooks/useThemeStyles';
@@ -104,11 +105,16 @@ function InitialSettingsPage({currentUserPersonalDetails}: InitialSettingsPagePr
 
     const isPersonalDetailsEmpty = isEmptyObject(currentUserPersonalDetails) || currentUserPersonalDetails.displayName === undefined;
 
+    const {left: safeAreaLeft, right: safeAreaRight} = useSafeAreaInsets();
+
     // Must match the same condition in AccountSwitcher, or the skeleton and the loaded header lay out differently.
     const shouldStackHeader = shouldUseNarrowLayout && !isInLandscapeMode;
 
     const headerContent = (
-        <View style={[styles.ph5, styles.pv4]}>
+        <View
+            key={`${safeAreaLeft}-${safeAreaRight}`}
+            style={[styles.ph5, styles.pv4]}
+        >
             {isPersonalDetailsEmpty ? (
                 <AccountSwitcherSkeletonView
                     avatarSize={shouldStackHeader ? CONST.AVATAR_SIZE.XXXX_LARGE : CONST.AVATAR_SIZE.DEFAULT}

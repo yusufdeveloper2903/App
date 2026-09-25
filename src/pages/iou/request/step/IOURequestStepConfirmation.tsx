@@ -141,7 +141,8 @@ function IOURequestStepConfirmationContent({
 }: IOURequestStepConfirmationProps) {
     const {getCurrencyDecimals, convertToDisplayString} = useCurrencyListActions();
     const params = route.params;
-    const {iouType, reportID, transactionID: initialTransactionID, action, backToReport, backTo} = params;
+    const {iouType: routeIOUType, reportID, transactionID: initialTransactionID, action, backToReport, backTo} = params;
+    const isGlobalCreateStartPage = route.name === SCREENS.MONEY_REQUEST.CREATE && routeIOUType === CONST.IOU.TYPE.CREATE;
     const participantsAutoAssignedFromRoute = route.name === SCREENS.MONEY_REQUEST.STEP_CONFIRMATION ? (params as StepConfirmationParams).participantsAutoAssigned : undefined;
 
     const currentUserPersonalDetails = useCurrentUserPersonalDetails();
@@ -167,6 +168,9 @@ function IOURequestStepConfirmationContent({
         () => (!isLoadingCurrentTransaction ? (optimisticTransaction ?? existingTransaction) : undefined),
         [existingTransaction, optimisticTransaction, isLoadingCurrentTransaction],
     );
+    const firstTransactionParticipant = transaction?.participants?.at(0);
+    const isSelfDMParticipant = !!firstTransactionParticipant?.isSelfDM || (!!firstTransactionParticipant?.reportID && firstTransactionParticipant.reportID === selfDMReport?.reportID);
+    const iouType = isGlobalCreateStartPage && isSelfDMParticipant ? CONST.IOU.TYPE.TRACK : routeIOUType;
     const requestType = getRequestType(transaction);
     const isPerDiemRequest = requestType === CONST.IOU.REQUEST_TYPE.PER_DIEM;
     const isUnreported = transaction?.reportID === CONST.REPORT.UNREPORTED_REPORT_ID;
@@ -473,11 +477,11 @@ function IOURequestStepConfirmationContent({
                     );
                 }
 
-                if (iouType !== CONST.IOU.TYPE.TRACK) {
+                if (!isGlobalCreateStartPage && iouType !== CONST.IOU.TYPE.TRACK) {
                     navigation.setParams({iouType: CONST.IOU.TYPE.TRACK});
                 }
             } else {
-                if (iouType === CONST.IOU.TYPE.SUBMIT || iouType === CONST.IOU.TYPE.TRACK) {
+                if (routeIOUType === CONST.IOU.TYPE.SUBMIT || routeIOUType === CONST.IOU.TYPE.TRACK) {
                     navigation.setParams({iouType: CONST.IOU.TYPE.CREATE});
                 }
                 setMoneyRequestParticipants(activeTransactionID, participantsList);
@@ -553,6 +557,8 @@ function IOURequestStepConfirmationContent({
             navigation,
             selfDMReport,
             iouType,
+            routeIOUType,
+            isGlobalCreateStartPage,
             reportID,
             isDistanceRequest,
             lastSelectedDistanceRates,
@@ -582,11 +588,13 @@ function IOURequestStepConfirmationContent({
         const firstDefault = defaultParticipants.at(0);
         if (firstDefault?.isSelfDM) {
             setTransactionReport(transaction.transactionID, {reportID: CONST.REPORT.UNREPORTED_REPORT_ID}, true);
-            navigation.setParams({iouType: CONST.IOU.TYPE.TRACK});
+            if (!isGlobalCreateStartPage) {
+                navigation.setParams({iouType: CONST.IOU.TYPE.TRACK});
+            }
         } else if (firstDefault?.reportID) {
             setTransactionReport(transaction.transactionID, {reportID: firstDefault.reportID}, true);
         }
-    }, [transaction?.transactionID, transaction?.participants, defaultParticipants, isManualRequest, navigation]);
+    }, [transaction?.transactionID, transaction?.participants, defaultParticipants, isManualRequest, navigation, isGlobalCreateStartPage]);
 
     const isPolicyExpenseChat = useMemo(() => {
         const hasPolicyExpenseChat = (participantList: typeof defaultParticipants) =>

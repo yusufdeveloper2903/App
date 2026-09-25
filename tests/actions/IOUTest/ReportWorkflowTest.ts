@@ -3688,7 +3688,7 @@ describe('actions/IOU/ReportWorkflow', () => {
             expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, onlyNonReimbursableTransactions, true)).toBeTruthy();
         });
 
-        it('should return false for report with only non-reimbursable expenses when amount is 0 (onlyShowPayElsewhere=true)', async () => {
+        describe('approved report whose reimbursable spend is exactly $0', () => {
             const policyChat = createRandomReport(1, CONST.REPORT.CHAT_TYPE.POLICY_EXPENSE_CHAT);
             const reportID = '998';
 
@@ -3715,20 +3715,60 @@ describe('actions/IOU/ReportWorkflow', () => {
                 nonReimbursableTotal: 0,
             };
 
-            const zeroAmountNonReimbursableTransactions: Transaction[] = [
-                {
-                    ...createRandomTransaction(1),
-                    reportID,
-                    amount: 0,
-                    currency: 'USD',
-                    reimbursable: false,
-                },
-            ];
+            const buildTransaction = (transactionID: string, amount: number, reimbursable: boolean, overrides: Partial<Transaction> = {}): Transaction => ({
+                ...createRandomTransaction(Number(transactionID)),
+                transactionID,
+                reportID,
+                amount,
+                currency: 'USD',
+                reimbursable,
+                managedCard: false,
+                status: CONST.TRANSACTION.STATUS.POSTED,
+                receipt: {},
+                ...overrides,
+            });
 
-            await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${fakePolicy.id}`, fakePolicy);
+            beforeEach(async () => {
+                await Onyx.merge(`${ONYXKEYS.COLLECTION.POLICY}${fakePolicy.id}`, fakePolicy);
+            });
 
-            expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, zeroAmountNonReimbursableTransactions, false)).toBeFalsy();
-            expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, zeroAmountNonReimbursableTransactions, true)).toBeFalsy();
+            it('offers only Mark as paid when reimbursable expenses cancel out', () => {
+                // Given an approved report with a $50 and a -$50 reimbursable expense
+                const transactions = [buildTransaction('1', -5000, true), buildTransaction('2', 5000, true)];
+
+                // When the payer checks the pay actions
+                // Then a real payment is not offered, but Mark as paid is, so the report can be closed out
+                expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, transactions, false)).toBeFalsy();
+                expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, transactions, true)).toBeTruthy();
+            });
+
+            it('offers Mark as paid for a deliberate $0 expense, reimbursable or not', () => {
+                // Given approved reports whose only expense is a deliberate $0 expense
+                // When the payer checks the pay-elsewhere action
+                // Then Mark as paid is offered either way, because nothing is left to settle
+                expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, [buildTransaction('1', 0, true)], true)).toBeTruthy();
+                expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, [buildTransaction('1', 0, false)], true)).toBeTruthy();
+            });
+
+            it('does not offer Mark as paid for an empty report', () => {
+                // Given an approved report with no expenses
+                // When the payer checks the pay-elsewhere action
+                // Then nothing is offered, because a $0 total there means no data rather than nothing owed
+                expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, [], true)).toBeFalsy();
+            });
+
+            it('does not offer Mark as paid while an expense amount is still unknown', () => {
+                // Given cancelling reimbursable expenses next to a receipt that is still scanning
+                const transactions = [
+                    buildTransaction('1', -5000, true),
+                    buildTransaction('2', 5000, true),
+                    buildTransaction('3', 0, true, {merchant: CONST.TRANSACTION.PARTIAL_TRANSACTION_MERCHANT, modifiedMerchant: '', receipt: {state: CONST.IOU.RECEIPT_STATE.SCAN_READY}}),
+                ];
+
+                // When the payer checks the pay-elsewhere action
+                // Then Mark as paid waits for the scan, so the report cannot be closed before its real amount is known
+                expect(canIOUBePaid(fakeReport, policyChat, fakePolicy, {}, RORY_EMAIL, RORY_ACCOUNT_ID, transactions, true)).toBeFalsy();
+            });
         });
 
         it('allows non-reimburser admin to pay in manual reimbursement mode', async () => {

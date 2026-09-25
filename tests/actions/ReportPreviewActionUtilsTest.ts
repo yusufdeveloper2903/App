@@ -940,7 +940,7 @@ describe('getReportPreviewAction', () => {
         }
     });
 
-    it('canPay should return false for Expense report with zero total amount', async () => {
+    it('canPay should return false for Expense report with zero total amount that still awaits approval', async () => {
         const report = {
             ...createRandomReport(REPORT_ID, undefined),
             type: CONST.REPORT.TYPE.EXPENSE,
@@ -955,6 +955,7 @@ describe('getReportPreviewAction', () => {
         policy.role = CONST.POLICY.ROLE.ADMIN;
         policy.type = CONST.POLICY.TYPE.CORPORATE;
         policy.reimbursementChoice = CONST.POLICY.REIMBURSEMENT_CHOICES.REIMBURSEMENT_YES;
+        policy.approvalMode = CONST.POLICY.APPROVAL_MODE.BASIC;
 
         await Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT}${REPORT_ID}`, report);
         const transaction = createMock<Transaction>({
@@ -962,7 +963,9 @@ describe('getReportPreviewAction', () => {
         });
 
         await waitForBatchedUpdatesWithAct();
-        // Should not show PAY button for zero amount Expenses
+        // Given a $0 report that is submitted but not approved yet
+        // When the preview action is computed
+        // Then Pay is not offered, because the report is not finished
         expect(
             getReportPreviewAction({
                 isReportArchived: false,
@@ -1021,7 +1024,7 @@ describe('getReportPreviewAction', () => {
         ).toBe(CONST.REPORT.REPORT_PREVIEW_ACTIONS.PAY);
     });
 
-    it('canPay should return VIEW for expense report with only non-reimbursable expenses when total is 0', async () => {
+    it('canPay should return PAY for a finished expense report with only non-reimbursable expenses when total is 0', async () => {
         const report = {
             ...createRandomReport(REPORT_ID, undefined),
             type: CONST.REPORT.TYPE.EXPENSE,
@@ -1046,6 +1049,9 @@ describe('getReportPreviewAction', () => {
             reportID: `${REPORT_ID}`,
         });
 
+        // Given a closed report whose only expense is non-reimbursable and nets to $0
+        // When the preview action is computed
+        // Then Pay is offered so the payer can close it out with Mark as paid
         const {result: isReportArchived} = renderHook(() => useReportIsArchived(report?.parentReportID));
         await waitForBatchedUpdatesWithAct();
         expect(
@@ -1061,7 +1067,7 @@ describe('getReportPreviewAction', () => {
                 ownerLogin: CURRENT_USER_EMAIL,
                 rules: undefined,
             }),
-        ).toBe(CONST.REPORT.REPORT_PREVIEW_ACTIONS.VIEW);
+        ).toBe(CONST.REPORT.REPORT_PREVIEW_ACTIONS.PAY);
     });
 
     it('canPay should return true for submitted invoice', async () => {

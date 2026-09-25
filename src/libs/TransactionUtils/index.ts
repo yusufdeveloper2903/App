@@ -3680,6 +3680,10 @@ function hasSubmissionBlockingViolations(
     return hasSubmissionBlockingViolationInList(violations);
 }
 
+function isExpenseValueUnsettled(transaction: Transaction, report: OnyxEntry<Report>, isTransactionScanning: (transactionToCheck: OnyxEntry<Transaction>) => boolean = isScanning): boolean {
+    return isTransactionScanning(transaction) || (isExpensifyCardTransaction(transaction) && isPending(transaction)) || hasSmartScanFailedWithMissingFields([transaction], report);
+}
+
 function isTransactionSubmittable(
     transaction: Transaction,
     report: OnyxEntry<Report>,
@@ -3690,7 +3694,7 @@ function isTransactionSubmittable(
     policy: OnyxEntry<Policy>,
     isTransactionScanning: (transactionToCheck: OnyxEntry<Transaction>) => boolean = isScanning,
 ): boolean {
-    if (isTransactionScanning(transaction) || (isExpensifyCardTransaction(transaction) && isPending(transaction)) || hasSmartScanFailedWithMissingFields([transaction], report)) {
+    if (isExpenseValueUnsettled(transaction, report, isTransactionScanning)) {
         return false;
     }
 
@@ -3959,6 +3963,7 @@ export {
     isPartialTransaction,
     isScanningTransaction,
     isScanning,
+    isExpenseValueUnsettled,
     isTransactionSubmittable,
     isCategoryBeingAnalyzed,
     getOriginalTransactionWithSplitInfo,

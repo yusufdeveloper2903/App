@@ -277,6 +277,7 @@ import {
     isDeletedTransaction,
     isDemoTransaction,
     isDistanceRequest,
+    isExpenseValueUnsettled,
     isFetchingWaypointsFromServer,
     isManagedCardTransaction,
     isManualDistanceRequest as isManualDistanceRequestTransactionUtils,
@@ -2812,13 +2813,26 @@ function shouldReportAlignToTop(report: OnyxEntry<Report>, parentReportAction: O
 /**
  * Checks if a report contains only Non-Reimbursable transactions
  */
+function resolveReportTransactions(iouReportID: string | undefined, transactionsParam?: Transaction[]): Transaction[] {
+    return transactionsParam ?? getReportTransactions(iouReportID);
+}
+
 function hasOnlyNonReimbursableTransactions(iouReportID: string | undefined, transactionsParam?: Transaction[]): boolean {
-    const transactions = transactionsParam ?? getReportTransactions(iouReportID);
+    const transactions = resolveReportTransactions(iouReportID, transactionsParam);
     if (!transactions || transactions.length === 0) {
         return false;
     }
 
     return transactions.every((transaction) => !getReimbursable(transaction));
+}
+
+function hasSettledZeroReimbursableSpend(report: OnyxInputOrEntry<Report>, transactionsParam?: Transaction[]): boolean {
+    if (!report || !isExpenseReport(report) || report.total === undefined || isReportTotalPending(report) || getMoneyRequestSpendBreakdown(report).reimbursableSpend !== 0) {
+        return false;
+    }
+
+    const transactions = resolveReportTransactions(report.reportID, transactionsParam).filter((transaction) => !isTransactionPendingDelete(transaction));
+    return transactions.length > 0 && !transactions.some((transaction) => isExpenseValueUnsettled(transaction, report));
 }
 
 /**
@@ -4760,14 +4774,14 @@ function getMoneyRequestSpendBreakdown(report: OnyxInputOrEntry<Report>, searchR
         const reimbursableSpendStored = getReimbursableTotal(moneyRequestReport);
         let totalSpend = reimbursableSpendStored + nonReimbursableSpend;
 
-        if (totalSpend !== 0) {
+        if (reimbursableSpendStored !== 0 || nonReimbursableSpend !== 0) {
             // There is a possibility that if the Expense report has a negative total.
             // This is because there are instances where you can get a credit back on your card,
             // or you enter a negative expense to "offset" future expenses
             nonReimbursableSpend = isExpenseReport(moneyRequestReport) ? nonReimbursableSpend * -1 : Math.abs(nonReimbursableSpend);
             totalSpend = isExpenseReport(moneyRequestReport) ? totalSpend * -1 : Math.abs(totalSpend);
 
-            const totalDisplaySpend = totalSpend;
+            const totalDisplaySpend = totalSpend || 0;
             const reimbursableSpend = totalDisplaySpend - nonReimbursableSpend;
 
             return {
@@ -14691,6 +14705,7 @@ export {
     hasExpensifyGuidesEmails,
     hasExportError,
     hasOnlyNonReimbursableTransactions,
+    hasSettledZeroReimbursableSpend,
     getReportLastMessage,
     getReportLastVisibleActionCreated,
     getMostRecentlyVisitedReport,

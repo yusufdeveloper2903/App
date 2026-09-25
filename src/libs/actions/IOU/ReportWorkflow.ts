@@ -51,6 +51,7 @@ import {
     hasHeldExpenses as hasHeldExpensesReportUtils,
     hasOnlyHeldExpenses,
     hasOnlyNonReimbursableTransactions,
+    hasSettledZeroReimbursableSpend,
     hasOutstandingChildRequest,
     isArchivedReport,
     isClosedReport as isClosedReportUtil,
@@ -266,6 +267,7 @@ function canIOUBePaid(
     const isIOU = isIOUReport(iouReport);
     const canShowMarkedAsPaidForNegativeAmount = onlyShowPayElsewhere && reimbursableSpend < 0;
     const isOnlyNonReimbursablePayElsewhere = onlyShowPayElsewhere && nonReimbursableSpend !== 0 && hasOnlyNonReimbursableTransactions(iouReport?.reportID, transactions);
+    const canShowMarkedAsPaidForZeroAmount = onlyShowPayElsewhere && hasSettledZeroReimbursableSpend(iouReport, transactions);
 
     if (isIOU && canPay && !iouSettled && reimbursableSpend > 0) {
         return true;
@@ -281,7 +283,7 @@ function canIOUBePaid(
         canPay &&
         isReportFinished &&
         !iouSettled &&
-        (reimbursableSpend > 0 || canShowMarkedAsPaidForNegativeAmount || isOnlyNonReimbursablePayElsewhere) &&
+        (reimbursableSpend > 0 || canShowMarkedAsPaidForNegativeAmount || canShowMarkedAsPaidForZeroAmount || isOnlyNonReimbursablePayElsewhere) &&
         !isPayBlockedByArchivedState(iouReport, policy, isChatReportArchived) &&
         !isAutoReimbursable &&
         !isPayAtEndExpenseReport &&

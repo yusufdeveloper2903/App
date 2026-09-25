@@ -80,6 +80,7 @@ import {
     getColumnsToShow,
     getSearchColumnTranslationKey,
     getSelectedGroupFilterEntry,
+    getTransactionsByReportID,
     getValidGroupBy,
     insertColumnBeforeTotalAmount,
     isGroupEntry,
@@ -770,6 +771,7 @@ function useSearchBulkActions({queryJSON}: UseSearchBulkActionsParams) {
 
         const firstPolicyID = payScopedPolicyIDs.at(0);
         const selectedPolicy = firstPolicyID ? currentSearchResults?.data?.[`${ONYXKEYS.COLLECTION.POLICY}${firstPolicyID}`] : undefined;
+        const transactionsByReportID = getTransactionsByReportID(currentSearchResults?.data ?? {});
         return (selectedTransactionReportIDs ?? payScopedReportIDs).some((reportID) => {
             const report = currentSearchResults?.data?.[`${ONYXKEYS.COLLECTION.REPORT}${reportID}`];
             const chatReportID = report?.chatReportID;
@@ -785,7 +787,7 @@ function useSearchBulkActions({queryJSON}: UseSearchBulkActionsParams) {
                     bankAccountList,
                     currentUserPersonalDetails?.login ?? '',
                     currentUserPersonalDetails.accountID,
-                    undefined,
+                    transactionsByReportID.get(reportID),
                     false,
                     undefined,
                     invoiceReceiverPolicy,
@@ -797,7 +799,7 @@ function useSearchBulkActions({queryJSON}: UseSearchBulkActionsParams) {
                     bankAccountList,
                     currentUserPersonalDetails?.login ?? '',
                     currentUserPersonalDetails.accountID,
-                    undefined,
+                    transactionsByReportID.get(reportID),
                     true,
                     undefined,
                     invoiceReceiverPolicy,

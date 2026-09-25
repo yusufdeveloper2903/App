@@ -24874,6 +24874,26 @@ describe('ReportUtils', () => {
             expect(fields.totalDisplaySpend).toBe(4000);
         });
 
+        it('keeps the reimbursable and non-reimbursable parts when they cancel to a $0 total', () => {
+            // Given a $50 reimbursable expense and a -$50 non-reimbursable expense, which the backend stores as a 0 total
+            const expenseReport: Report = {
+                ...createRandomReport(0, undefined),
+                type: CONST.REPORT.TYPE.EXPENSE,
+                total: 0,
+                nonReimbursableTotal: 5000,
+                reimbursableTotal: -5000,
+            };
+
+            // When the spend breakdown is computed
+            const fields = getMoneyRequestSpendBreakdown(expenseReport);
+
+            // Then the $50 owed to the submitter is still reported, so the report can be paid instead of only marked as paid
+            expect(fields.reimbursableSpend).toBe(5000);
+            expect(fields.nonReimbursableSpend).toBe(-5000);
+            expect(fields.totalDisplaySpend).toBe(0);
+            expect(Object.is(fields.totalDisplaySpend, -0)).toBe(false);
+        });
+
         it('uses Math.abs for an IOU report so values are positive', () => {
             const iouReport: Report = {
                 ...createRandomReport(0, undefined),

@@ -515,6 +515,10 @@ const config: LinkingOptions<RootNavigatorParamList>['config'] = {
                         [SCREENS.SETTINGS.SUBSCRIPTION.SETTINGS_DETAILS]: {
                             path: ROUTES.SETTINGS_SUBSCRIPTION_SETTINGS_DETAILS,
                         },
+                        [SCREENS.SETTINGS.PROFILE.VACATION_DELEGATE_EDIT]: {
+                            path: ROUTES.SETTINGS_VACATION_DELEGATE_EDIT,
+                            exact: true,
+                        },
                         [SCREENS.SETTINGS.PROFILE.VACATION_DELEGATE]: {
                             path: ROUTES.SETTINGS_VACATION_DELEGATE,
                             exact: true,
@@ -1543,6 +1547,9 @@ const config: LinkingOptions<RootNavigatorParamList>['config'] = {
                         },
                         [SCREENS.DOMAIN.VACATION_DELEGATE]: {
                             path: ROUTES.DOMAIN_VACATION_DELEGATE.route,
+                        },
+                        [SCREENS.DOMAIN.VACATION_DELEGATE_EDIT]: {
+                            path: ROUTES.DOMAIN_VACATION_DELEGATE_EDIT.route,
                         },
                         [SCREENS.DOMAIN.ADD_MEMBER]: {
                             path: ROUTES.DOMAIN_ADD_MEMBER.route,

@@ -46,14 +46,14 @@ function VacationDelegatePage() {
 
         if (option?.login === vacationDelegate?.delegate) {
             deleteVacationDelegate(vacationDelegate);
-            Navigation.goBack(ROUTES.SETTINGS_STATUS);
+            Navigation.goBack(ROUTES.SETTINGS_PROFILE.route);
             return;
         }
 
         isSelectingRef.current = true;
         const hasUnconfirmedChange = !!vacationDelegate?.pendingAction || !isEmptyObject(vacationDelegate?.errors) || !!vacationDelegate?.policyDiff;
         const currentDelegate = hasUnconfirmedChange ? vacationDelegate?.previousDelegate : vacationDelegate?.delegate;
-        setVacationDelegate({creator: currentUserLogin, delegate: option?.login ?? '', currentDelegate})
+        setVacationDelegate({creator: currentUserLogin, delegate: option?.login ?? '', currentDelegate, clearAfter: vacationDelegate?.clearAfter})
             .then((response) => {
                 if (!navigation.isFocused()) {
                     if (response?.data?.policyDiff) {
@@ -74,7 +74,7 @@ function VacationDelegatePage() {
                     return;
                 }
 
-                Navigation.goBack(ROUTES.SETTINGS_STATUS);
+                Navigation.goBack(ROUTES.SETTINGS_VACATION_DELEGATE_EDIT);
             })
             .catch(() => {
                 if (!navigation.isFocused()) {
@@ -99,7 +99,7 @@ function VacationDelegatePage() {
                 vacationDelegate={vacationDelegate}
                 onSelectRow={onSelectRow}
                 headerTitle={translate('common.vacationDelegate')}
-                onBackButtonPress={() => Navigation.goBack(ROUTES.SETTINGS_STATUS)}
+                onBackButtonPress={() => Navigation.goBack(vacationDelegate?.delegate ? ROUTES.SETTINGS_VACATION_DELEGATE_EDIT : ROUTES.SETTINGS_PROFILE.route)}
                 cannotSetDelegateMessage={translate('statusPage.cannotSetVacationDelegate')}
                 includeCurrentUser={false}
             />

@@ -53,8 +53,8 @@ function DomainMemberVacationDelegatePage({route}: DomainMemberVacationDelegateP
             return;
         }
 
-        setDomainVacationDelegate(domainAccountID, accountID, currentUserLogin ?? '', memberLogin, delegateLogin, vacationDelegate);
-        Navigation.goBack(ROUTES.DOMAIN_MEMBER_DETAILS.getRoute(domainAccountID, accountID));
+        setDomainVacationDelegate(domainAccountID, accountID, currentUserLogin ?? '', memberLogin, delegateLogin, vacationDelegate, vacationDelegate?.clearAfter);
+        Navigation.goBack(ROUTES.DOMAIN_VACATION_DELEGATE_EDIT.getRoute(domainAccountID, accountID));
     };
 
     return (

@@ -3,6 +3,7 @@ import useLocalize from '@hooks/useLocalize';
 import useThemeStyles from '@hooks/useThemeStyles';
 import useVacationDelegatePersonalDetails from '@hooks/useVacationDelegatePersonalDetails';
 
+import DateUtils from '@libs/DateUtils';
 import getVacationDelegateDisplayName from '@libs/getVacationDelegateDisplayName';
 
 import CONST from '@src/CONST';
@@ -40,7 +41,7 @@ type VacationDelegateSectionProps = {
 
 function VacationDelegateMenuItem({vacationDelegate, errors, pendingAction, onCloseError, onPress}: VacationDelegateSectionProps) {
     const styles = useThemeStyles();
-    const {translate, formatPhoneNumber} = useLocalize();
+    const {translate, formatPhoneNumber, dateFnsLocale} = useLocalize();
     const icons = useMemoizedLazyExpensifyIcons(['FallbackAvatar']);
 
     const hasVacationDelegate = !!vacationDelegate?.delegate;
@@ -49,6 +50,9 @@ function VacationDelegateMenuItem({vacationDelegate, errors, pendingAction, onCl
     const rawDelegateLogin = vacationDelegatePersonalDetails?.login ?? vacationDelegate?.delegate ?? '';
     const delegateDisplayName = getVacationDelegateDisplayName(rawDelegateLogin, vacationDelegatePersonalDetails?.displayName, formatPhoneNumber);
     const delegateDescription = formatPhoneNumber(rawDelegateLogin);
+    const clearAfterText = vacationDelegate?.clearAfter
+        ? translate('statusPage.untilTime', DateUtils.formatWithUTCTimeZone(vacationDelegate.clearAfter, CONST.DATE.MONTH_DAY_YEAR_ABBR_FORMAT, dateFnsLocale))
+        : '';
 
     return (
         <OfflineWithFeedback
@@ -74,6 +78,7 @@ function VacationDelegateMenuItem({vacationDelegate, errors, pendingAction, onCl
                         <MenuItem.Content>
                             <MenuItem.Title>{delegateDisplayName}</MenuItem.Title>
                             {!!delegateDescription && <MenuItem.Description numberOfLines={1}>{delegateDescription}</MenuItem.Description>}
+                            {!!clearAfterText && <MenuItem.Description numberOfLines={1}>{clearAfterText}</MenuItem.Description>}
                         </MenuItem.Content>
                         <MenuItem.Trailing>
                             <MenuItem.Chevron />

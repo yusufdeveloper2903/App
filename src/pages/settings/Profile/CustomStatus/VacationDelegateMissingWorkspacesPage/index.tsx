@@ -127,8 +127,8 @@ function VacationDelegateMissingWorkspacesPage() {
         }
 
         setSubmittedInput({delegate, policyDiff});
-        setVacationDelegate({creator, delegate, currentDelegate: previousDelegate, shouldOverridePolicyDiffWarning: true});
-        Navigation.goBack(ROUTES.SETTINGS_STATUS);
+        setVacationDelegate({creator, delegate, currentDelegate: previousDelegate, clearAfter: vacationDelegate?.clearAfter, shouldOverridePolicyDiffWarning: true});
+        Navigation.goBack(ROUTES.SETTINGS_VACATION_DELEGATE_EDIT);
     };
 
     return (

@@ -26,7 +26,10 @@ import useScrollEnabled from '@hooks/useScrollEnabled';
 import useStyleUtils from '@hooks/useStyleUtils';
 import useTheme from '@hooks/useTheme';
 import useThemeStyles from '@hooks/useThemeStyles';
+import useVacationDelegatePersonalDetails from '@hooks/useVacationDelegatePersonalDetails';
 
+import DateUtils from '@libs/DateUtils';
+import getVacationDelegateDisplayName from '@libs/getVacationDelegateDisplayName';
 import getVacationDelegateErrors from '@libs/getVacationDelegateErrors';
 import createDynamicRoute from '@libs/Navigation/helpers/dynamicRoutesUtils/createDynamicRoute';
 import Navigation from '@libs/Navigation/Navigation';
@@ -64,7 +67,7 @@ function ProfilePage() {
     const theme = useTheme();
     const styles = useThemeStyles();
     const StyleUtils = useStyleUtils();
-    const {translate, formatPhoneNumber} = useLocalize();
+    const {translate, formatPhoneNumber, dateFnsLocale} = useLocalize();
     const {shouldUseNarrowLayout} = useResponsiveLayout();
     const {safeAreaPaddingBottomStyle} = useSafeAreaPaddings();
     const scrollEnabled = useScrollEnabled();
@@ -96,12 +99,16 @@ function ProfilePage() {
     const [commuterExclusionsWorkspaceName] = useOnyx(ONYXKEYS.COLLECTION.POLICY, {selector: homeAndOfficeCommuterExclusionPolicyNameSelector});
 
     const [vacationDelegate] = useOnyx(ONYXKEYS.NVP_PRIVATE_VACATION_DELEGATE);
+    const vacationDelegatePersonalDetails = useVacationDelegatePersonalDetails(vacationDelegate?.delegate);
+    const vacationDelegateLogin = vacationDelegatePersonalDetails?.login ?? vacationDelegate?.delegate ?? '';
+    const shouldOpenVacationDelegateSelection = !vacationDelegate?.delegate && !vacationDelegate?.delegatorFor?.length;
     const {isActingAsDelegate} = useDelegateNoAccessState();
     const {showDelegateNoAccessModal} = useDelegateNoAccessActions();
     const publicOptions: Array<{
         description: string;
         title: string;
         pageRoute?: Route;
+        helperText?: string;
         brickRoadIndicator?: ValueOf<typeof CONST.BRICK_ROAD_INDICATOR_STATUS>;
         testID?: string;
         sentryLabel?: string;
@@ -128,9 +135,20 @@ function ProfilePage() {
             description: translate('statusPage.status'),
             title: emojiCode ? `${emojiCode} ${currentUserPersonalDetails?.status?.text ?? ''}` : '',
             pageRoute: ROUTES.SETTINGS_STATUS,
-            brickRoadIndicator: isEmptyObject(getVacationDelegateErrors(vacationDelegate)) ? undefined : CONST.BRICK_ROAD_INDICATOR_STATUS.ERROR,
             testID: 'status-menu-item',
             sentryLabel: CONST.SENTRY_LABEL.SETTINGS_PROFILE.STATUS,
+        },
+        {
+            description: translate('common.vacationDelegate'),
+            title: vacationDelegate?.delegate ? getVacationDelegateDisplayName(vacationDelegateLogin, vacationDelegatePersonalDetails?.displayName, formatPhoneNumber) : '',
+            helperText:
+                vacationDelegate?.delegate && vacationDelegate.clearAfter
+                    ? translate('statusPage.untilTime', DateUtils.formatWithUTCTimeZone(vacationDelegate.clearAfter, CONST.DATE.MONTH_DAY_YEAR_ABBR_FORMAT, dateFnsLocale))
+                    : undefined,
+            pageRoute: shouldOpenVacationDelegateSelection ? ROUTES.SETTINGS_VACATION_DELEGATE : ROUTES.SETTINGS_VACATION_DELEGATE_EDIT,
+            brickRoadIndicator: isEmptyObject(getVacationDelegateErrors(vacationDelegate)) ? undefined : CONST.BRICK_ROAD_INDICATOR_STATUS.ERROR,
+            testID: 'vacation-delegate-menu-item',
+            sentryLabel: CONST.SENTRY_LABEL.SETTINGS_PROFILE.VACATION_DELEGATE,
         },
         ...(isAgentAccount === false
             ? [
@@ -280,6 +298,7 @@ function ProfilePage() {
                                         shouldShowRightIcon={!!pageRoute}
                                         title={detail.title}
                                         description={detail.description}
+                                        helperText={detail.helperText}
                                         wrapperStyle={styles.sectionMenuItemTopDescription}
                                         onPress={pageRoute ? () => Navigation.navigate(pageRoute) : undefined}
                                         brickRoadIndicator={detail.brickRoadIndicator}

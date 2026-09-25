@@ -28,10 +28,11 @@ type SetVacationDelegateOptions = {
     creator: string;
     delegate: string;
     currentDelegate?: string;
+    clearAfter?: string;
     shouldOverridePolicyDiffWarning?: boolean;
 };
 
-async function setVacationDelegate({creator, delegate, currentDelegate, shouldOverridePolicyDiffWarning = false}: SetVacationDelegateOptions) {
+async function setVacationDelegate({creator, delegate, currentDelegate, clearAfter, shouldOverridePolicyDiffWarning = false}: SetVacationDelegateOptions) {
     const optimisticData: Array<OnyxUpdate<typeof ONYXKEYS.NVP_PRIVATE_VACATION_DELEGATE>> = [
         {
             onyxMethod: Onyx.METHOD.MERGE,
@@ -39,6 +40,7 @@ async function setVacationDelegate({creator, delegate, currentDelegate, shouldOv
             value: {
                 creator,
                 delegate,
+                clearAfter: clearAfter ?? null,
                 errors: null,
                 pendingAction: CONST.RED_BRICK_ROAD_PENDING_ACTION.UPDATE,
                 previousDelegate: currentDelegate ?? null,
@@ -76,6 +78,7 @@ async function setVacationDelegate({creator, delegate, currentDelegate, shouldOv
     const parameters: SetVacationDelegateParams = {
         creator,
         vacationDelegateEmail: delegate,
+        clearAfter,
         overridePolicyDiffWarning: shouldOverridePolicyDiffWarning,
     };
 
@@ -122,7 +125,7 @@ function deleteVacationDelegate(vacationDelegate?: VacationDelegate) {
         return;
     }
 
-    const {creator, delegate} = vacationDelegate;
+    const {creator, delegate, clearAfter} = vacationDelegate;
     const optimisticData: Array<OnyxUpdate<typeof ONYXKEYS.NVP_PRIVATE_VACATION_DELEGATE>> = [
         {
             onyxMethod: Onyx.METHOD.MERGE,
@@ -130,6 +133,7 @@ function deleteVacationDelegate(vacationDelegate?: VacationDelegate) {
             value: {
                 creator: null,
                 delegate: null,
+                clearAfter: null,
                 errors: null,
                 previousDelegate: vacationDelegate?.delegate,
                 pendingAction: CONST.RED_BRICK_ROAD_PENDING_ACTION.DELETE,
@@ -158,6 +162,7 @@ function deleteVacationDelegate(vacationDelegate?: VacationDelegate) {
             value: {
                 creator,
                 delegate,
+                clearAfter,
                 errors: ErrorUtils.getMicroSecondOnyxErrorWithTranslationKey('statusPage.vacationDelegateError'),
                 pendingAction: null,
             },

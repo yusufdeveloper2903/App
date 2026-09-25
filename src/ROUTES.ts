@@ -2643,8 +2643,9 @@ const ROUTES = {
     SETTINGS_STATUS_CLEAR_AFTER: 'settings/profile/status/clear-after',
     SETTINGS_STATUS_CLEAR_AFTER_DATE: 'settings/profile/status/clear-after/date',
     SETTINGS_STATUS_CLEAR_AFTER_TIME: 'settings/profile/status/clear-after/time',
-    SETTINGS_VACATION_DELEGATE: 'settings/profile/status/vacation-delegate',
-    SETTINGS_VACATION_DELEGATE_MISSING_WORKSPACES: 'settings/profile/status/vacation-delegate/missing-workspaces',
+    SETTINGS_VACATION_DELEGATE_EDIT: 'settings/profile/vacation-delegate',
+    SETTINGS_VACATION_DELEGATE: 'settings/profile/vacation-delegate/select',
+    SETTINGS_VACATION_DELEGATE_MISSING_WORKSPACES: 'settings/profile/vacation-delegate/select/missing-workspaces',
     SETTINGS_TROUBLESHOOT: 'settings/troubleshoot',
     SETTINGS_HELP: 'settings/help',
 
@@ -5319,6 +5320,11 @@ const ROUTES = {
     DOMAIN_VACATION_DELEGATE: {
         route: 'domain/:domainAccountID/members/:accountID/vacation-delegate',
         getRoute: (domainAccountID: number, accountID: number) => `domain/${domainAccountID}/members/${accountID}/vacation-delegate` as const,
+    },
+
+    DOMAIN_VACATION_DELEGATE_EDIT: {
+        route: 'domain/:domainAccountID/members/:accountID/vacation-delegate/clear-after',
+        getRoute: (domainAccountID: number, accountID: number) => `domain/${domainAccountID}/members/${accountID}/vacation-delegate/clear-after` as const,
     },
 
     MULTIFACTOR_AUTHENTICATION_AUTHORIZE_TRANSACTION: {

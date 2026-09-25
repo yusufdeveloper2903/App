@@ -168,7 +168,13 @@ function DomainMemberDetailsPage({route}: DomainMemberDetailsPageProps) {
                 </OfflineWithFeedback>
                 <VacationDelegateMenuItem
                     vacationDelegate={vacationDelegate}
-                    onPress={() => Navigation.navigate(ROUTES.DOMAIN_VACATION_DELEGATE.getRoute(domainAccountID, accountID))}
+                    onPress={() =>
+                        Navigation.navigate(
+                            vacationDelegate?.delegate
+                                ? ROUTES.DOMAIN_VACATION_DELEGATE_EDIT.getRoute(domainAccountID, accountID)
+                                : ROUTES.DOMAIN_VACATION_DELEGATE.getRoute(domainAccountID, accountID),
+                        )
+                    }
                     pendingAction={domainPendingActions?.member?.[memberLogin]?.vacationDelegate}
                     errors={getLatestError(domainErrors?.memberErrors?.[memberLogin]?.vacationDelegateErrors)}
                     onCloseError={() => clearVacationDelegateError(domainAccountID, accountID, memberLogin, vacationDelegate?.previousDelegate)}

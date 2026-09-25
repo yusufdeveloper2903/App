@@ -3798,6 +3798,8 @@ ${integrationName === CONST.ONBOARDING_ACCOUNTING_MAPPING.other ? 'あなたの'
         setVacationDelegate: `休暇中に不在の間、あなたに代わってレポートを承認する代理人を設定しましょう。`,
         cannotSetVacationDelegate: `現在、次のメンバーの代理人になっているため、休暇代理人を設定できません：`,
         addVacationDelegate: '休暇代理人を追加',
+        clearAfterRecommended: 'クリアする日（推奨）',
+        vacationDelegateWillClearOn: (date: string) => `休暇代理人は${date}にクリアされます`,
         vacationDelegateError: '休暇の代理人を更新中にエラーが発生しました。',
         asVacationDelegate: (nameOrEmail: string) => `${nameOrEmail} さんの休暇代理として`,
         toAsVacationDelegate: (submittedToName: string, vacationDelegateName: string) => `${vacationDelegateName} の休暇代理人として ${submittedToName} に`,

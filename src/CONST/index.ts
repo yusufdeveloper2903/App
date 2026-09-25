@@ -9910,6 +9910,8 @@ const CONST = {
             PRONOUNS: 'SettingsProfile-Pronouns',
             TIMEZONE: 'SettingsProfile-Timezone',
             SHARE_CODE: 'SettingsProfile-ShareCode',
+            VACATION_DELEGATE: 'SettingsProfile-VacationDelegate',
+            VACATION_DELEGATE_SAVE: 'SettingsProfile-VacationDelegateSave',
             LEGAL_NAME: 'SettingsProfile-LegalName',
             DATE_OF_BIRTH: 'SettingsProfile-DateOfBirth',
             PHONE_NUMBER: 'SettingsProfile-PhoneNumber',

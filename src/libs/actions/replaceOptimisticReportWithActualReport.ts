@@ -80,6 +80,11 @@ function replaceOptimisticReportWithActualReport(report: Report, draftReportComm
 
     // Handle cleanup of stale optimistic IOU report and its report preview separately
     if (isMoneyRequestReport(report) && parentReportID && parentReportActionID) {
+        const currentRoute = navigationRef.isReady() ? navigationRef.getCurrentRoute() : undefined;
+        const currentRouteReportID = (currentRoute?.params as {reportID?: string} | undefined)?.reportID;
+        if (currentRoute?.name === SCREENS.RIGHT_MODAL.EXPENSE_REPORT && currentRouteReportID === reportID) {
+            Navigation.setParams({reportID: preexistingReportID.toString()});
+        }
         Onyx.merge(`${ONYXKEYS.COLLECTION.REPORT_ACTIONS}${parentReportID}`, {
             [parentReportActionID]: null,
         });

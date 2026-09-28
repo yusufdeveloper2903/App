@@ -13,6 +13,7 @@ type BaseOnboardingInterestedFeaturesProps = OnboardingInterestedFeaturesProps &
 type Feature = {
     id: string;
     title: string;
+    description?: string;
     icon: IconAsset;
     enabledByDefault?: boolean;
     requiresUpdate?: boolean;

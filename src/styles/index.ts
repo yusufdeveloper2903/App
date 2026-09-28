@@ -5758,14 +5758,21 @@ const staticStyles = (theme: ThemeColors) =>
 
         onboardingInterestedFeaturesItem: {
             backgroundColor: theme.cardBG,
-            borderRadius: variables.componentBorderRadiusNormal,
+            borderRadius: variables.componentBorderRadiusLarge,
+            borderWidth: 2,
+            borderColor: theme.cardBG,
             padding: 16,
+            gap: 12,
             display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            flexDirection: 'column',
             flexGrow: 1,
             flexShrink: 1,
+            minHeight: 'auto',
+            aspectRatio: 1,
+        },
+
+        onboardingInterestedFeaturesItemSelected: {
+            borderColor: theme.success,
         },
 
         checkboxWithLabelCheckboxStyle: {

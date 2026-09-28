@@ -68,19 +68,44 @@ function BaseOnboardingInterestedFeatures({shouldUseNativeStyles}: BaseOnboardin
                 case CONST.POLICY.MORE_FEATURES.ARE_WORKFLOWS_ENABLED:
                     return {...feature, title: translate('workspace.moreFeatures.workflows.title'), icon: illustrations.Workflows};
                 case CONST.POLICY.MORE_FEATURES.IS_TRAVEL_ENABLED:
-                    return {...feature, title: translate('workspace.moreFeatures.travel.title'), icon: illustrations.Luggage};
+                    return {
+                        ...feature,
+                        title: translate('workspace.moreFeatures.travel.title'),
+                        description: translate('workspace.moreFeatures.travel.subtitle'),
+                        icon: illustrations.Luggage,
+                    };
                 case CONST.POLICY.MORE_FEATURES.ARE_RULES_ENABLED:
-                    return {...feature, title: translate('workspace.moreFeatures.rules.title'), icon: illustrations.Rules};
+                    return {...feature, title: translate('workspace.moreFeatures.rules.title'), description: translate('workspace.moreFeatures.rules.subtitle'), icon: illustrations.Rules};
                 case CONST.POLICY.MORE_FEATURES.ARE_DISTANCE_RATES_ENABLED:
-                    return {...feature, title: translate('workspace.moreFeatures.distanceRates.title'), icon: illustrations.Car};
+                    return {
+                        ...feature,
+                        title: translate('workspace.moreFeatures.distanceRates.title'),
+                        description: translate('workspace.moreFeatures.distanceRates.subtitle'),
+                        icon: illustrations.Car,
+                    };
                 case CONST.POLICY.MORE_FEATURES.ARE_EXPENSIFY_CARDS_ENABLED:
-                    return {...feature, title: translate('workspace.moreFeatures.expensifyCard.title'), icon: illustrations.HandCard};
+                    return {
+                        ...feature,
+                        title: translate('workspace.moreFeatures.expensifyCard.title'),
+                        description: translate('workspace.moreFeatures.expensifyCard.subtitle'),
+                        icon: illustrations.HandCard,
+                    };
                 case CONST.POLICY.MORE_FEATURES.ARE_TAGS_ENABLED:
-                    return {...feature, title: translate('workspace.moreFeatures.tags.title'), icon: illustrations.Tag};
+                    return {...feature, title: translate('workspace.moreFeatures.tags.title'), description: translate('workspace.moreFeatures.tags.subtitle'), icon: illustrations.Tag};
                 case CONST.POLICY.MORE_FEATURES.ARE_PER_DIEM_RATES_ENABLED:
-                    return {...feature, title: translate('workspace.moreFeatures.perDiem.title'), icon: illustrations.PerDiem};
+                    return {
+                        ...feature,
+                        title: translate('workspace.moreFeatures.perDiem.title'),
+                        description: translate('workspace.moreFeatures.perDiem.subtitle'),
+                        icon: illustrations.PerDiem,
+                    };
                 case CONST.POLICY.MORE_FEATURES.IS_TIME_TRACKING_ENABLED:
-                    return {...feature, title: translate('workspace.moreFeatures.timeTracking.title'), icon: illustrations.Clock};
+                    return {
+                        ...feature,
+                        title: translate('workspace.moreFeatures.timeTracking.title'),
+                        description: translate('workspace.moreFeatures.timeTracking.subtitle'),
+                        icon: illustrations.Clock,
+                    };
                 default:
                     return {...feature, title: feature.id, icon: illustrations.FolderOpen};
             }
@@ -194,26 +219,30 @@ function BaseOnboardingInterestedFeatures({shouldUseNativeStyles}: BaseOnboardin
                     hoverStyle={styles.hoveredComponentBG}
                     style={[
                         styles.onboardingInterestedFeaturesItem,
-                        // 48.5% handles the gap between columns and keeps items aligned when the scrollbar appears
-                        isSmallScreenWidth ? styles.flexBasis100 : {flexBasis: '48.5%', maxWidth: '48.5%'},
+                        isSelected && styles.onboardingInterestedFeaturesItemSelected,
+                        // 47.5% and 23% handle the gap between columns and keep items aligned when the scrollbar appears
+                        isSmallScreenWidth ? {flexBasis: '47.5%', maxWidth: '47.5%'} : {flexBasis: '23%', maxWidth: '23%'},
                     ]}
                     sentryLabel={CONST.SENTRY_LABEL.ONBOARDING.INTERESTED_FEATURES_ITEM}
                 >
-                    <View style={[styles.flexRow, styles.alignItemsCenter, styles.gap3]}>
+                    <View style={[styles.flexRow, styles.justifyContentBetween, styles.w100]}>
                         <Icon
                             src={item.icon}
                             width={48}
                             height={48}
                         />
-                        <Text style={[styles.textStrong]}>{item.title}</Text>
+                        <Checkbox
+                            accessibilityLabel={item.title}
+                            isChecked={isSelected}
+                            onPress={() => {
+                                handleFeatureSelect(item.id);
+                            }}
+                        />
                     </View>
-                    <Checkbox
-                        accessibilityLabel={item.title}
-                        isChecked={isSelected}
-                        onPress={() => {
-                            handleFeatureSelect(item.id);
-                        }}
-                    />
+                    <View style={[styles.gap1]}>
+                        <Text style={[styles.textStrong]}>{item.title}</Text>
+                        {!!item.description && <Text style={[styles.textLabelSupporting]}>{item.description}</Text>}
+                    </View>
                 </PressableWithoutFeedback>
             );
         },

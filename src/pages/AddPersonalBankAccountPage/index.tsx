@@ -13,7 +13,6 @@ import getNonEmptyStringOnyxID from '@libs/getNonEmptyStringOnyxID';
 import {formatE164PhoneNumber} from '@libs/LoginUtils';
 import getActiveTabName from '@libs/Navigation/helpers/getActiveTabName';
 import {isFullScreenName} from '@libs/Navigation/helpers/isNavigatorName';
-import {getCurrentAddress, getStreetLines} from '@libs/PersonalDetailsUtils';
 
 import Navigation, {navigationRef} from '@navigation/Navigation';
 
@@ -36,6 +35,7 @@ import ManualBankAccountDetails from './substeps/ManualBankAccountDetailsStep';
 import PhoneNumber from './substeps/PhoneNumberStep';
 import PlaidBankAccount from './substeps/PlaidBankAccountStep';
 import Success from './substeps/SuccessStep';
+import getBankAccountOwnerDetails from './utils/getBankAccountOwnerDetails';
 import getSkippedStepsPersonalInfo from './utils/getSkippedStepsPersonalInfo';
 
 const SUB_PAGE_NAMES = CONST.ADD_PERSONAL_BANK_ACCOUNT.SUB_PAGE_NAMES;
@@ -118,23 +118,9 @@ function AddPersonalBankAccountPage() {
               };
         const finalPhoneNumber = personalBankAccount?.phoneNumber ?? privatePersonalDetails?.phoneNumber ?? '';
 
-        // When the Address substep is skipped (the profile already has a complete address), the flat
-        // addressStreet/addressCity/... keys that addPersonalBankAccount expects are never written to the form draft.
-        // Map the saved profile address (stored nested in the addresses array) to those flat keys so the address
-        // is still submitted. The form draft spread below wins, so a manually entered address still takes precedence.
-        const currentAddress = getCurrentAddress(privatePersonalDetails);
-        const [addressStreet, street2] = getStreetLines(currentAddress?.street);
-        // The unit/suite may be stored either embedded after a newline in `street` (extracted above) or in the
-        // separate `street2`/`addressLine2` fields; fall back to those so it isn't dropped, matching UpdatePersonalBankAccountPage.
-        const addressStreet2 = street2 ?? currentAddress?.street2 ?? currentAddress?.addressLine2;
         const accountData = {
             ...privatePersonalDetails,
-            addressStreet,
-            addressStreet2,
-            addressCity: currentAddress?.city,
-            addressState: currentAddress?.state,
-            addressZipCode: currentAddress?.zip,
-            country: currentAddress?.country,
+            ...getBankAccountOwnerDetails(privatePersonalDetails),
             ...personalBankAccount,
             ...bankAccountWithToken,
             phoneNumber: formatE164PhoneNumber(finalPhoneNumber, countryCode),
@@ -146,9 +132,7 @@ function AddPersonalBankAccountPage() {
     };
 
     const pages = isManual ? pagesWithManualSetup : pagesWithPlaid;
-    const skipPages = getSkippedStepsPersonalInfo(privatePersonalDetails)
-        .map((index) => pages.at(index)?.pageName)
-        .filter((pageName): pageName is NonNullable<typeof pageName> => !!pageName);
+    const skipPages = getSkippedStepsPersonalInfo(privatePersonalDetails);
 
     const buildRoute = (pageName: string, action?: 'edit') =>
         route.name === SCREENS.SETTINGS.ADD_US_BANK_ACCOUNT ? ROUTES.SETTINGS_ADD_US_BANK_ACCOUNT.getRoute(pageName, action) : ROUTES.BANK_ACCOUNT_PERSONAL.getRoute(pageName, action);

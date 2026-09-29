@@ -1,4 +1,6 @@
+import {getLatestWriteRequestIndex, processRequest} from '@libs/API/makeRequest';
 import {READ_COMMANDS, SIDE_EFFECT_REQUEST_COMMANDS, WRITE_COMMANDS} from '@libs/API/types';
+import {waitForIdle as waitForSequentialQueueIdle} from '@libs/Network/SequentialQueue';
 
 import * as OnyxUpdates from '@userActions/OnyxUpdates';
 
@@ -26,6 +28,17 @@ const requestsToApplyWithoutAdvancingLastUpdateID = new Set<string>([READ_COMMAN
 
 const SaveResponseInOnyx: Middleware = <TKey extends OnyxKey>(requestResponse: Promise<Response<TKey> | void>, request: OnyxRequest<TKey>) =>
     requestResponse.then((response = {}) => {
+        const latestWriteRequestIndex = getLatestWriteRequestIndex();
+        if (
+            request.data?.apiRequestType === CONST.API_REQUEST_TYPE.READ &&
+            !requestsToApplyWithoutAdvancingLastUpdateID.has(request.command) &&
+            (request.requestIndex ?? latestWriteRequestIndex) < latestWriteRequestIndex
+        ) {
+            request.requestIndex = latestWriteRequestIndex;
+            waitForSequentialQueueIdle().then(() => processRequest(request, CONST.API_REQUEST_TYPE.READ));
+            return Promise.resolve(response);
+        }
+
         const onyxUpdates = response?.onyxData ?? [];
 
         // Sometimes we call requests that are successful but they don't have any response or any success/failure/finally data to set. Let's return early since

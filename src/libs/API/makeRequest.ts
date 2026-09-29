@@ -23,6 +23,11 @@ import type {ApiCommand, ApiRequestCommandParameters, ApiRequestType} from './ty
 // Each tab has its own JS context with its own counter, so a simple
 // incrementing number would collide across tabs.
 let requestIndex = Date.now();
+let latestWriteRequestIndex = 0;
+
+function getLatestWriteRequestIndex(): number {
+    return latestWriteRequestIndex;
+}
 
 function buildLogParams(command: string, params: Record<string, unknown>): Record<string, unknown> {
     return {command, ...Object.fromEntries(Object.entries(sanitizeLogParams(params)))};
@@ -84,6 +89,7 @@ function prepareRequest<TCommand extends ApiCommand, TKey extends OnyxKey>(
     };
 
     if (isWriteRequest) {
+        latestWriteRequestIndex = request.requestIndex ?? latestWriteRequestIndex;
         // This should be removed once we are no longer using deprecatedAPI https://github.com/Expensify/Expensify/issues/215650
         request.data.shouldRetry ??= true;
         request.data.canCancel = true;
@@ -116,4 +122,4 @@ async function processRequest<TKey extends OnyxKey>(request: OnyxRequest<TKey>, 
     return processWithMiddleware(request);
 }
 
-export {buildLogParams, prepareRequest, processRequest};
+export {buildLogParams, getLatestWriteRequestIndex, prepareRequest, processRequest};

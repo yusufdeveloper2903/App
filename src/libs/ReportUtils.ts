@@ -4634,7 +4634,11 @@ function getReasonAndReportActionThatRequiresAttention(
     const actionTypeForAssigneeToComplete = getActionTypeForAssigneeToComplete(optionOrReport, parentReportAction);
 
     // Compute IOU candidate upfront so we can compare timestamps with task candidate
-    const {reportAction: iouReportActionToApproveOrPay, actionBadge} = getIOUReportActionWithBadge(
+    const {
+        reportAction: iouReportActionToApproveOrPay,
+        actionBadge,
+        heldReportID,
+    } = getIOUReportActionWithBadge(
         optionOrReport,
         policy,
         optionReportMetadata,
@@ -4646,7 +4650,7 @@ function getReasonAndReportActionThatRequiresAttention(
         allReportActionsParam ?? allReportActions,
     );
     // Fall back to the chat's outstanding child so the pending-only check still runs when no badge action was found.
-    const iouReportID = getIOUReportIDFromReportActionPreview(iouReportActionToApproveOrPay) ?? optionOrReport.iouReportID;
+    const iouReportID = getIOUReportIDFromReportActionPreview(iouReportActionToApproveOrPay) ?? heldReportID ?? optionOrReport.iouReportID;
     const transactions = getReportTransactions(iouReportID);
     const hasOnlyPendingTransactions = transactions.length > 0 && transactions.every((t) => isPending(t));
 

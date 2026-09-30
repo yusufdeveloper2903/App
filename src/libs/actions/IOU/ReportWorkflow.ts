@@ -413,9 +413,11 @@ function getIOUReportActionWithBadge(
 ): {
     reportAction: OnyxEntry<ReportAction>;
     actionBadge?: ValueOf<typeof CONST.REPORT.ACTION_BADGE>;
+    heldReportID?: string;
 } {
     let actionBadge: ValueOf<typeof CONST.REPORT.ACTION_BADGE> | undefined;
     let earliestAction: ReportAction | undefined;
+    let heldReportID: string | undefined;
 
     for (const action of Object.values(chatReportActions ?? {})) {
         if (action?.actionName !== CONST.REPORT.ACTIONS.TYPE.REPORT_PREVIEW || isDeletedAction(action)) {
@@ -449,6 +451,9 @@ function getIOUReportActionWithBadge(
         // still needs action from the current user.
         const badge = getBadgeFromIOUReport(iouReport, chatReport, policy, reportMetadata, invoiceReceiverPolicy, currentUserLogin, currentUserAccountID, iouReportActions);
         if (!badge) {
+            if (!heldReportID && isReportExcludedForHeldExpenses(iouReport, getReportTransactions(iouReport.reportID), iouReportActions, currentUserAccountID)) {
+                heldReportID = iouReport.reportID;
+            }
             continue;
         }
 
@@ -458,7 +463,7 @@ function getIOUReportActionWithBadge(
         }
     }
 
-    return {reportAction: earliestAction, actionBadge};
+    return {reportAction: earliestAction, actionBadge, heldReportID};
 }
 
 /**

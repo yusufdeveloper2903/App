@@ -159,3 +159,24 @@
 - Upstream PR/issue:
 - E/App issue: https://github.com/Expensify/App/issues/95221
 - PR introducing patch:
+
+### [@shopify+react-native-skia+2.11.2+005+load-font-resources.patch](@shopify+react-native-skia+2.11.2+005+load-font-resources.patch)
+
+- Reason:
+
+    ```
+    Fixes Skia charts drawing no text on Android release builds. Chart fonts are loaded with
+    Skia.Data.fromURI(Image.resolveAssetSource(require('...otf')).uri). In a release build that
+    uri is a bare Android resource name, and PlatformContext.getJniStreamFromSource only looks
+    it up as a drawable or raw resource. Metro put fonts in res/raw, but Re.Pack puts .otf/.ttf
+    in res/font, so the lookup misses, the stream fails with "Invalid URI scheme", and the
+    fromURI promise never settles. Every chart typeface stays null.
+
+    Fix: also look the name up as a font resource. openRawResource reads any file-backed
+    resource, so the existing read path is reused. The new lookup only runs when drawable and
+    raw both miss, which today always fails.
+    ```
+
+- Upstream PR/issue:
+- E/App issue: https://github.com/Expensify/App/issues/102633
+- PR introducing patch:

@@ -1,0 +1,14 @@
+diff --git a/node_modules/@shopify/react-native-skia/android/src/main/java/com/shopify/reactnative/skia/PlatformContext.java b/node_modules/@shopify/react-native-skia/android/src/main/java/com/shopify/reactnative/skia/PlatformContext.java
+--- a/node_modules/@shopify/react-native-skia/android/src/main/java/com/shopify/reactnative/skia/PlatformContext.java
++++ b/node_modules/@shopify/react-native-skia/android/src/main/java/com/shopify/reactnative/skia/PlatformContext.java
+@@ -62,6 +62,10 @@
+             resourceId = mContext.getResources().getIdentifier(sourceUri, "raw", mContext.getPackageName());
+         }
+ 
++        if (resourceId == 0) {
++            resourceId = mContext.getResources().getIdentifier(sourceUri, "font", mContext.getPackageName());
++        }
++
+         if (resourceId != 0) {
+             // We can just return the input stream directly
+             return getStreamAsBytes(mContext.getResources().openRawResource(resourceId));

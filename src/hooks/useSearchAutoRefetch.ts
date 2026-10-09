@@ -150,6 +150,11 @@ function useSearchAutoRefetch({
             const existingSearchResultIDsSet = new Set(currentSearchResultIDs);
             const hasAGenuinelyNewID = (isChat ? reportActionsIDs : addedTransactionIDs).some((id) => !existingSearchResultIDsSet.has(id));
 
+            if (!isFocused && !hasAGenuinelyNewID) {
+                hasPendingSearchRef.current = true;
+                return;
+            }
+
             // Only skip search if there are no new items AND search results aren't empty
             // This ensures deletions that result in empty data still trigger search
             if (!hasAGenuinelyNewID && !hasChangedResultTransaction && !hadPendingSearch && currentSearchResultIDs.length > 0) {
